@@ -1,0 +1,9 @@
+#!/usr/bin/bash
+
+./tools/renew_assets
+
+make compile pkg
+cd build
+ncftp << EOL
+open -P 21 -a ftp://192.168.0.69;cd PSP/GAME/PSPDEV;put *; exit
+EOL

@@ -1,0 +1,7 @@
+[workspace]
+resolver = "3"
+members = [
+	"img-to-pspt",
+	"model-to-pspm",
+	"mtl-to-psps",
+]

@@ -1,0 +1,18 @@
+[package]
+name = "psp-apis"
+version = "0.1.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+
+[features]
+default = [ "gfx" ]
+gfx = [ "dep:glam" ]
+critical-section = ["dep:critical-section"]
+no_std_io = ["dep:no_std_io"]
+
+[dependencies]
+critical-section = { version = "1.2.0", default-features = false, optional = true, features = [ "restore-state-u32" ] }
+glam = { version = "0.32.0", default-features = false, optional = true }
+no_std_io = { version = "0.6.0", optional = true }
+numeric-enum-macro = { version = "0.2.0", default-features = false }
+psp-sys = { version = "0.3.12", path = "../psp-sys" }

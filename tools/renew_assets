@@ -1,0 +1,22 @@
+#!/bin/bash
+
+renew() {
+	find assets/*."$1" | while read src; do
+		local tgt=`basename "$src"`
+		local tgt="build/${tgt/$1/$2}"
+		if [ "$src" -nt "$tgt" ]; then
+			yes | \
+			./converters/target/debug/"$3" $4 -- "$src" "$tgt"
+		else
+			echo "Skipping $tgt ..."
+		fi
+	done
+}
+
+renew png pspt img-to-pspt "--format abgr8"
+renew webp pspt img-to-pspt "--format abgr4"
+renew obj pspm model-to-pspm
+renew mtl psps mtl-to-psps
+
+cp -v --update assets/*.at3 build
+cp -v --update assets/*.txt build

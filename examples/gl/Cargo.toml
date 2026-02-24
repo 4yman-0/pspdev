@@ -1,0 +1,12 @@
+[package]
+name = "gl"
+version = "0.1.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+# bytemuck = { version = "1.25.0", default-features = false }
+glam = { version = "0.32.0", default-features = false, features = ["nostd-libm"] }
+psp-sys = { version = "0.3.12", path = "../../psp-sys" }
+psp-apis = { version = "0.1.0", path = "../../psp-apis" }
+aligned_box = { version = "0.3.0", default-features = false }

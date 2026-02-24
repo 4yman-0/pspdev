@@ -1,0 +1,18 @@
+[workspace]
+resolver = "3"
+members = [
+	"examples/*",
+	"psp-apis",
+	"psp-sys"
+]
+
+[profile.dev]
+lto = false
+incremental = true
+#debug = true
+panic = "abort"
+debug-assertions = true
+
+[profile.release]
+panic = "abort"
+strip = true

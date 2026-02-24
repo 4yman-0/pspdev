@@ -1,0 +1,9 @@
+[package]
+name = "img-to-pspt"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+image = { version = "0.25.10", default-features = false, features = ["gif", "ico", "jpeg", "png", "tiff", "webp"] }
+clap = { version = "4.6.0", default-features = false, features = ["color", "derive", "help", "std", "usage"] }
+bytemuck = { version = "1.25.0", default-features = false }

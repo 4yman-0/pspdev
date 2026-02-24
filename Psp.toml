@@ -1,0 +1,13 @@
+title = "PSP test"
+#disc_id = "RUST-00001"
+disc_version = "0.1"
+parental_level = 5
+
+# 24bit 144x80 PNG
+xmb_icon_png = "Psp/xmb_icon.png"
+
+# 24bit 480x272 background PNG
+#xmb_background_png = "Psp/xmb_background.png"
+
+# ATRAC3 audio AT3
+#xmb_music_at3 = "Psp/xmb_music.at3"

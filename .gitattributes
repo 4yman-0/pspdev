@@ -1,0 +1,5 @@
+assets filter=lfs diff=lfs merge=lfs
+build filter=lfs diff=lfs merge=lfs
+*.flac filter=lfs diff=lfs merge=lfs
+*.raw filter=lfs diff=lfs merge=lfs
+*.at3 filter=lfs diff=lfs merge=lfs

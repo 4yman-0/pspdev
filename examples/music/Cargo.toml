@@ -1,0 +1,8 @@
+[package]
+name = "music"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+psp-sys = { version = "0.3.12", path = "../../psp-sys" }
+psp-apis = { version = "0.1.0", path = "../../psp-apis", default-features = false }
