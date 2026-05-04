@@ -53,23 +53,97 @@ impl From<NativeError> for GlError {
     }
 }
 
-use glam::{I8Vec4, Mat4, Vec3};
+use glam::{I8Vec4, Mat4, Vec3, Vec4};
 
 #[derive(Clone)]
 pub struct Mat3By4 {
-    pub x: Vec3,
-    pub y: Vec3,
-    pub z: Vec3,
-    pub w: Vec3,
+    pub x_axis: Vec3,
+    pub y_axis: Vec3,
+    pub z_axis: Vec3,
+    pub w_axis: Vec3,
 }
 
 impl Mat3By4 {
     pub const IDENTITY: Self = Self {
-        x: Vec3::new(1.0, 0.0, 0.0),
-        y: Vec3::new(0.0, 1.0, 0.0),
-        z: Vec3::new(0.0, 0.0, 1.0),
-        w: Vec3::ZERO,
+        x_axis: Vec3::new(1.0, 0.0, 0.0),
+        y_axis: Vec3::new(0.0, 1.0, 0.0),
+        z_axis: Vec3::new(0.0, 0.0, 1.0),
+        w_axis: Vec3::ZERO,
     };
+    pub const ZERO: Self = Self {
+        x_axis: Vec3::ZERO,
+        y_axis: Vec3::ZERO,
+        z_axis: Vec3::ZERO,
+        w_axis: Vec3::ZERO,
+    };
+    #[allow(clippy::too_many_arguments)]
+    #[inline(always)]
+    #[must_use]
+    const fn new(
+        m00: f32,
+        m01: f32,
+        m02: f32,
+        m10: f32,
+        m11: f32,
+        m12: f32,
+        m20: f32,
+        m21: f32,
+        m22: f32,
+        m30: f32,
+        m31: f32,
+        m32: f32,
+    ) -> Self {
+        Self {
+            x_axis: Vec3::new(m00, m01, m02),
+            y_axis: Vec3::new(m10, m11, m12),
+            z_axis: Vec3::new(m20, m21, m22),
+            w_axis: Vec3::new(m30, m31, m32),
+        }
+    }
+    #[inline(always)]
+    #[must_use]
+	pub const fn from_cols(
+		x_axis: Vec3,
+		y_axis: Vec3,
+		z_axis: Vec3,
+		w_axis: Vec3,
+	) -> Self {
+		Self {
+			x_axis,
+			y_axis,
+			z_axis,
+			w_axis,
+		}
+	}
+    #[inline(always)]
+    #[must_use]
+    pub const fn from_scale(scale: Vec3) -> Self {
+    	Self::new(
+    		scale.x, 0.0, 0.0,
+    		0.0, scale.y, 0.0,
+    		0.0, 0.0, scale.z,
+    		0.0, 0.0, 0.0,
+    	)
+    }
+    #[inline(always)]
+    #[must_use]
+    const fn v4_to_v3(v: Vec4) -> Vec3 {
+    	Vec3 {
+    		x: v.x,
+    		y: v.y,
+    		z: v.z,
+    	}
+    }
+    #[inline(always)]
+    #[must_use]
+    pub const fn from_mat4(m: Mat4) -> Self {
+    	Self::from_cols(
+			Self::v4_to_v3(m.x_axis),
+			Self::v4_to_v3(m.y_axis),
+			Self::v4_to_v3(m.z_axis),
+			Self::v4_to_v3(m.w_axis),
+    	)
+    }
 }
 
 #[derive(Clone)]
@@ -171,7 +245,6 @@ impl ListHandle {
         sync_mode: sys::GuSyncMode,
         sync_behavior: sys::GuSyncBehavior,
     ) {
-        // FIXME: This works in PPSSPP but not on a real PSP-3000
         unsafe {
             sys::sceGuSync(sync_mode, sync_behavior);
         };
@@ -257,7 +330,7 @@ const fn state_to_command(state: sys::GuState) -> GeCmd {
 }
 
 pub struct MatrixCommandCache {
-    perspective: Mat4,
+    projection: Mat4,
     view: Mat3By4,
     model: Mat3By4,
     texture: Mat3By4,
@@ -266,7 +339,7 @@ pub struct MatrixCommandCache {
 impl Default for MatrixCommandCache {
     fn default() -> Self {
         Self {
-            perspective: Mat4::IDENTITY,
+            projection: Mat4::IDENTITY,
             view: Mat3By4::IDENTITY,
             model: Mat3By4::IDENTITY,
             texture: Mat3By4::IDENTITY,
@@ -295,7 +368,7 @@ impl MatrixCommandCache {
         }
     }
     pub fn test_projection(&mut self, index: usize, value: f32) -> bool {
-        let matrix = self.perspective.as_mut();
+        let matrix = self.projection.as_mut();
         if matrix[index] != value {
             matrix[index] = value;
             true
@@ -311,7 +384,7 @@ impl MatrixCommandCache {
         }
     }
     pub fn overwrite_projection(&mut self, matrix: Mat4) {
-        self.perspective = matrix;
+        self.projection = matrix;
     }
 }
 
@@ -360,11 +433,10 @@ impl Gl {
         depth: &mut Texture,
     ) -> GlResult<()> {
         use sys::TexturePixelFormat as TexelFmt;
-        if let TexelFmt::Psm4444 | TexelFmt::Psm5650 | TexelFmt::Psm5551 =
-            depth.format()
-        {
-            ()
-        } else {
+        if !matches!(
+            depth.format(),
+            TexelFmt::Psm4444 | TexelFmt::Psm5650 | TexelFmt::Psm5551
+        ) {
             return Err(GlError::InvalidFramebuffer);
         }
         /*let (depth1, depth2) = split_address(unsafe {
@@ -505,10 +577,10 @@ impl Gl {
     pub fn depth_range(&mut self, near: u16, far: u16, offset: usize) {
         // lower means farther, higher means closer
         let (near, far) = (near as usize, far as usize);
-        assert!(
+        /*assert!(
             far < near,
             "Depth far limit should not be higher than near limit"
-        );
+        );*/
         let max = near + far;
         let val = ((max >> 31) + max) as f32;
         let z = val / 2.0;
@@ -627,11 +699,8 @@ impl Gl {
         vertex_count: VertexCount,
         prim: sys::GuPrimitive,
     ) {
-        self.list.send_parts(
-            GeCmd::Prim,
-            prim as u8,
-            vertex_count.get().into(),
-        );
+        self.list
+            .send_parts(GeCmd::Prim, prim as u8, vertex_count.get());
         self.list.stall();
     }
     pub fn draw_bounding_box(&mut self, vertex_count: VertexCount) {
@@ -1002,26 +1071,26 @@ impl Gl {
         );
     }
     /// # Panics
-    /// panics if the src or destination constant are bigger than 24 bits
+    /// Panics if the `src` or `dst` constants are bigger than 24 bits
     pub fn blend_function(
         &mut self,
         op: sys::BlendOp,
         src: sys::BlendFactor,
-        dest: sys::BlendFactor,
+        dst: sys::BlendFactor,
         src_fix: usize,
-        dest_fix: usize,
+        dst_fix: usize,
     ) {
         assert!(src_fix >> 24 == 0);
-        assert!(dest_fix >> 24 == 0);
+        assert!(dst_fix >> 24 == 0);
         self.list.send(
             GeCmd::BlendMode,
-            ((op as usize) << 8) | ((dest as usize) << 4) | src as usize,
+            ((op as usize) << 8) | ((dst as usize) << 4) | src as usize,
         );
         self.list.send(GeCmd::BlendFixedA, src_fix);
-        self.list.send(GeCmd::BlendFixedB, dest_fix);
+        self.list.send(GeCmd::BlendFixedB, dst_fix);
     }
     pub fn logical_operation(&mut self, op: sys::LogicalOperation) {
-        self.list.send(GeCmd::LogicOp, op as usize & 0x0f);
+        self.list.send(GeCmd::LogicOp, op as usize);
     }
     pub fn specular_coeff(&mut self, power: f32) {
         self.list.send_float(GeCmd::MaterialSpecularCoef, power);
@@ -1103,7 +1172,8 @@ impl Gl {
     }
     pub fn set_bone_matrix(&mut self, index: u8, matrix: &Mat3By4) {
         self.list
-            .send(GeCmd::BoneMatrixNumber, (index as usize) * 12); // 3 * 4 matrix
+            .send(GeCmd::BoneMatrixNumber, (index as usize) * 12);
+        // 3 * 4 matrix
         for scalar in matrix.as_ref() {
             self.list.send_float(GeCmd::BoneMatrixData, *scalar);
         }
@@ -1244,7 +1314,7 @@ impl Gl {
     ///
     /// # Note
     ///
-    /// Only used by the 3D T&L pipe, renders ton with `VertexType::TRANSFORM_2D`
+    /// Only used by the 3D T&L pipe, renders done with `VertexType::TRANSFORM_2D`
     /// are not affected by this.
     pub fn texture_scale(&mut self, u: f32, v: f32) {
         self.list.send_float(GeCmd::TexScaleU, u);
@@ -1342,7 +1412,7 @@ impl Gl {
         );
     }
     /// # Panics
-    /// panics if `index` is higher than 8 (only 8 bones are supported)
+    /// panics if `index >= 8` (only 8 bones are supported)
     pub fn morph_weight(&mut self, index: u8, weight: f32) {
         self.list.send_float(
             match index {
@@ -1424,5 +1494,4 @@ impl Gl {
             .send(GeCmd::LoadClut, (clut.width() * clut.height() / 8) as usize);
         Ok(())
     }
-    // TODO: Beizer / B-Spline
 }

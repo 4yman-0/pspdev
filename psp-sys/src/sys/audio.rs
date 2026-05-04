@@ -59,9 +59,9 @@ psp_extern! {
     #![flags = 0x4001]
     #![version = (0, 0)]
 
-	#[psp(0x80F1F7E0)]
-	/// Initialize sceAudio
-	pub fn sceAudioInit() -> i32;
+    #[psp(0x80F1F7E0)]
+    /// Initialize sceAudio
+    pub fn sceAudioInit() -> i32;
 
     #[psp(0x5EC81C55)]
     /// Allocate and initialize a hardware output channel.

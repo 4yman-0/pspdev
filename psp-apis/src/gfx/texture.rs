@@ -10,8 +10,6 @@ pub enum TextureError {
 
     TextureTooSmall,
     WidthNotPowerOfTwo,
-    TextureRefTooBig,
-    TextureRefTooSmall,
     InvalidInternalBuffer,
 }
 

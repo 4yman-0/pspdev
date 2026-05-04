@@ -17,7 +17,9 @@ pub mod input;
 pub mod kernel;
 pub mod mp3;
 pub mod power;
+pub mod rtc;
 pub mod thread;
+pub mod wlan;
 
 #[cfg(feature = "critical-section")]
 mod critical_section;

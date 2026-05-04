@@ -49,13 +49,13 @@ impl VramAllocator {
         Ok(ptr)
     }
 
-    /// # Note
+    /// # Safety
     /// All VRAM pointers will become dangling
-    pub fn deallocate_all(&mut self) {
+    pub unsafe fn deallocate_all(&mut self) {
         self.head.store(0, AtomicOrdering::Relaxed);
     }
 
-    pub fn memory_used(&self) -> usize {
+    pub fn vram_used(&self) -> usize {
         self.head.load(AtomicOrdering::Relaxed)
     }
 }

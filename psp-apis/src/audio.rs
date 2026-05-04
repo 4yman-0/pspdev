@@ -133,9 +133,7 @@ pub struct AudioChannel {
 
 impl AudioChannel {
     pub fn init() -> NativeResult<()> {
-        native_result(unsafe {
-            sys::sceAudioInit()
-        })?;
+        native_result(unsafe { sys::sceAudioInit() })?;
         Ok(())
     }
 

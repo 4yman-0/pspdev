@@ -9,10 +9,10 @@ use psp_sys::sys;
 
 pub(crate) const fn matrix_3_by_4(matrix: Mat3, translation: Vec3) -> Mat3By4 {
     Mat3By4 {
-        x: matrix.x_axis,
-        y: matrix.y_axis,
-        z: matrix.z_axis,
-        w: translation,
+        x_axis: matrix.x_axis,
+        y_axis: matrix.y_axis,
+        z_axis: matrix.z_axis,
+        w_axis: translation,
     }
 }
 

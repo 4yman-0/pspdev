@@ -261,7 +261,7 @@ impl Directory {
         native_error(result)
     }
 
-    pub fn read(&self) -> FsResult<(sys::SceIoDirent, bool)> {
+    pub fn read(&mut self) -> FsResult<Option<sys::SceIoDirent>> {
         let mut dir_entry = sys::SceIoDirent {
             d_stat: default_io_stat(),
             d_name: [48; 256],
@@ -270,7 +270,7 @@ impl Directory {
         };
         let result = unsafe { sys::sceIoDread(self.uid, &raw mut dir_entry) };
         native_result(result)
-            .map(|result| (dir_entry, result == 0))
+            .map(|result| if result != 0 { Some(dir_entry) } else { None })
             .map_err(|e| e.into())
     }
 }
@@ -278,6 +278,14 @@ impl Directory {
 impl Drop for Directory {
     fn drop(&mut self) {
         let _ = self.close_non_consuming();
+    }
+}
+
+impl Iterator for Directory {
+    type Item = sys::SceIoDirent;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.read().unwrap_or(None)
     }
 }
 
@@ -301,14 +309,14 @@ pub fn get_stat(path: &Path) -> NativeResult<sys::SceIoStat> {
         unsafe { sys::sceIoGetstat(path.as_ptr().cast(), &raw mut stat) };
     native_error(result).map(|_| stat)
 }
+
 pub fn set_stat(
     path: &Path,
     stat: &sys::SceIoStat,
     mask: u32,
 ) -> NativeResult<()> {
     native_error(unsafe {
-        // SAFETY: it's not actually mutable
-        // It's just not const * const _
+        // SAFETY: it's not actually mutable, trust.
         sys::sceIoChstat(
             path.as_ptr().cast(),
             (&raw const *stat) as *mut sys::SceIoStat,
@@ -352,7 +360,7 @@ pub fn stderr() -> NativeResult<File> {
     unsafe { File::from_uid(sys::sceKernelStdout()) }
 }
 
-// TODO: Weird SceIoDev*/SceIo(Un)Assign
+// TODO: Weird SceIoDev*/SceIo[Un]Assign
 
 pub fn sync(device: &Path, unknown: u32) -> i32 {
     unsafe { sys::sceIoSync(device.as_ptr().cast(), unknown) }

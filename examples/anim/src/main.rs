@@ -15,8 +15,6 @@ use psp_apis::gfx::{
     Gfx,
     color::Color32,
     gl::{GlResult, Mat3By4, MatrixMode},
-    index::IndexItem,
-    texture::{Texture, texture_pixel_size},
     vertex::{Vertex, VertexSize, const_vt_size},
 };
 
@@ -53,21 +51,17 @@ const MODEL_VERTICES: &[Vert] = &[
         weight: [1.0, 0.0],
         position: [-0.5, -0.5, 0.0],
     },
-    Vert {
-        weight: [0.0, 1.0],
-        position: [ 0.0, 0.7, 0.0],
-    },
 ];
-const MODEL_INDICES: &[u16] = &[0, 1, 2, 1, 3, 2];
+const MODEL_INDICES: &[u16] = &[0, 1, 2,];
 
 psp_sys::module!("gl", 0, 1);
 
-const fn matrix_3_by_4(matrix: &Mat3, translation: &Vec3) -> Mat3By4 {
+const fn matrix_3_by_4(matrix: Mat3, translation: Vec3) -> Mat3By4 {
     Mat3By4 {
-        x: matrix.x_axis,
-        y: matrix.y_axis,
-        z: matrix.z_axis,
-        w: *translation,
+        x_axis: matrix.x_axis,
+        y_axis: matrix.y_axis,
+        z_axis: matrix.z_axis,
+        w_axis: translation,
     }
 }
 
@@ -81,7 +75,6 @@ fn deg_to_rad(deg: f32) -> f32 {
 
 fn psp_main() {
     enable_home_button();
-    dprint!("ENABLED HOME BUTTON");
     let mut gfx = Gfx::init()
         .unwrap()
         .depth_test()
@@ -93,7 +86,6 @@ fn psp_main() {
         .texture_2d()
         .build()
         .unwrap();
-    dprint!("GFX INIT SUCCESS");
     warn_unwrap(gfx.start_frame_with(|frame| {
         // Initial setup pass
         let gl = frame.gl_mut();
@@ -118,8 +110,7 @@ fn psp_main() {
         perspective.w_axis.z *= 0.9;
         gl.overwrite_projection_matrix(perspective);
 
-        let texture = matrix_3_by_4(&Mat3::ZERO, &Vec3::ZERO);
-        gl.set_matrix(MatrixMode::Texture, &texture);
+        gl.set_matrix(MatrixMode::Texture, &Mat3By4::ZERO);
 
         gl.shading_model(sys::ShadingModel::Flat);
 
@@ -127,11 +118,10 @@ fn psp_main() {
         gl.light_mode(sys::LightMode::SeparateSpecularColor);
         Ok(())
     }));
-    dprint!("SETUP PASS SUCCESS");
     let emulated = Directory::open(c"ms0:/PSP/GAME/PSPDEV_EMU").is_ok();
 
     if emulated {
-        dprint!("PSPDEV_EMU detected! This system is an illusion!");
+        dprint!("PSPDEV_EMU detected!");
     } else {
         dprint!("Real PSP!");
     }
@@ -155,12 +145,12 @@ fn psp_main() {
             {
                 // Gran Turismo jittering
                 const JITTER: f32 = 1.0 / 272.0;
-                let mut view = matrix_3_by_4(&Mat3::IDENTITY, &Vec3::ZERO);
+                let mut view = matrix_3_by_4(Mat3::IDENTITY, Vec3::ZERO);
                 if frame_clock.edge_clock(2) {
-                    view.w.x += JITTER;
+                    view.w_axis.x += JITTER;
                 }
                 if frame_clock.offset(1).edge_clock(2) {
-                    view.w.y += JITTER;
+                    view.w_axis.y += JITTER;
                 }
                 gl.set_matrix(MatrixMode::View, &view)
             }
@@ -169,13 +159,13 @@ fn psp_main() {
 
             gl.set_matrix(
                 MatrixMode::Model,
-                &matrix_3_by_4(&Mat3::IDENTITY, &Vec3::new(0.0, 0.0, -1.0)),
+                &matrix_3_by_4(Mat3::IDENTITY, Vec3::new(0.0, 0.0, -1.0)),
             );
             gl.set_bone_matrix(
                 1,
                 &matrix_3_by_4(
-                    &Mat3::IDENTITY,
-                    &Vec3::new(
+                    Mat3::IDENTITY,
+                    Vec3::new(
                         f32::from(frame_clock.continous_clock(30)) * 0.2,
                         0.0,
                         0.0,

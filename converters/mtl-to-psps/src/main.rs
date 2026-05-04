@@ -15,6 +15,13 @@ fn write_bytes<W: Write>(write: &mut W, value: &[u8]) {
 	write.write_all(value).unwrap();
 }
 
+fn write_u16<W: Write>(write: &mut W, value: u16) {
+	write_bytes(write, &value.to_le_bytes());
+}
+fn write_u32<W: Write>(write: &mut W, value: u32) {
+	write_bytes(write, &value.to_le_bytes());
+}
+
 fn main() {
     let cli = Cli::parse();
     if std::fs::exists(&cli.output).unwrap() {
@@ -106,19 +113,19 @@ fn main() {
     let output_file = File::create(&cli.output).unwrap();
     let mut output_file = BufWriter::new(output_file);
 
-    write_bytes(&mut output_file, &u16::from(use_real_ambient).to_le_bytes());
-    write_bytes(&mut output_file, &real_ambient.to_le_bytes());
+    write_u16(&mut output_file, u16::from(use_real_ambient));
+    write_u32(&mut output_file, real_ambient);
     
-    write_bytes(&mut output_file, &u16::from(use_ambient).to_le_bytes());
-    write_bytes(&mut output_file, &ambient.to_le_bytes());
+    write_u16(&mut output_file, u16::from(use_ambient));
+    write_u32(&mut output_file, ambient);
     
-    write_bytes(&mut output_file, &u16::from(use_diffuse).to_le_bytes());
-    write_bytes(&mut output_file, &diffuse.to_le_bytes());
+    write_u16(&mut output_file, u16::from(use_diffuse));
+    write_u32(&mut output_file, diffuse);
     
-    write_bytes(&mut output_file, &u16::from(use_specular).to_le_bytes());
-    write_bytes(&mut output_file, &specular.to_le_bytes());
+    write_u16(&mut output_file, u16::from(use_specular));
+    write_u32(&mut output_file, specular);
     
-    write_bytes(&mut output_file, &u16::from(use_specular_coeff).to_le_bytes());
+    write_u16(&mut output_file, u16::from(use_specular_coeff));
     write_bytes(
     	&mut output_file,
         &specular_coeff.to_le_bytes(),

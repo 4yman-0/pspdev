@@ -6,13 +6,13 @@ pub type NativeResult<T> = Result<T, NativeError>;
 pub struct NativeError(i32);
 
 impl NativeError {
-    pub fn facility(&self) -> NativeFacility {
+    pub fn facility(&self) -> Option<NativeFacility> {
         let facility = ((self.0 >> 16) & 0xfff) as u16;
-        facility.try_into().unwrap()
+        facility.try_into().ok()
     }
 
     pub const fn is_critical(&self) -> bool {
-        ((self.0 >> 30) & 1) == 1
+        (self.0 & 0x40000000) != 0
     }
 
     pub(crate) const fn inner(&self) -> i32 {
@@ -30,7 +30,7 @@ impl fmt::Display for NativeError {
             } else {
                 "Non-critical"
             },
-            self.facility(),
+            self.facility().unwrap(),
             self.0
         )
     }

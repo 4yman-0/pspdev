@@ -30,7 +30,7 @@ impl Gfx {
     pub const HEIGHT: u16 = 272;
     pub const BUFFER_WIDTH: u16 = 512;
     pub fn init_default() -> gl::GlResult<Self> {
-        Self::init()?
+        Self::init(sys::TexturePixelFormat::Psm8888)?
             .depth_test()
             .double_buffering()
             .culling()
@@ -69,11 +69,12 @@ impl Gfx {
     }
     #[must_use]
     pub fn double_buffering(mut self) -> Self {
+        let format = self.frame_buffer.format();
         let double_buffer = Texture::allocate(
             self.vram_allocator_mut(),
             Self::BUFFER_WIDTH,
             Self::WIDTH,
-            sys::TexturePixelFormat::Psm5551,
+            format,
             false,
         )
         .unwrap();
@@ -97,8 +98,6 @@ impl Gfx {
         let gl = self.gl_mut();
         gl.texture_scale(1.0, 1.0);
         gl.texture_offset(0.0, 0.0);
-        // The texture might not be valid
-        //gl.set_state(sys::GuState::Texture2D, true);
         self
     }
     pub fn build(mut self) -> gl::GlResult<Self> {
@@ -106,22 +105,22 @@ impl Gfx {
         gl.finish()?;
         gl.list_mut()
             .sync(sys::GuSyncMode::List, sys::GuSyncBehavior::Wait);
-        //gl.list_mut().dequeue();
-        psp_sys::dprint!("SYNCED");
+        psp_sys::dprint!("Gfx synced");
         let _ = gl;
 
         Ok(self)
     }
 
     /// It is strongly recommended to only call this once
-    pub fn init() -> gl::GlResult<Self> {
+    pub fn init(frame_buffer_format: sys::TexturePixelFormat)
+     -> gl::GlResult<Self> {
         use gl::MatrixMode;
         let mut vram_allocator = VramAllocator::default();
         let mut frame_buffer = Texture::allocate(
             &mut vram_allocator,
             Self::BUFFER_WIDTH,
             Self::HEIGHT,
-            sys::TexturePixelFormat::Psm5551,
+            frame_buffer_format,
             false,
         )
         .unwrap();
@@ -142,7 +141,6 @@ impl Gfx {
             2048 - (Self::HEIGHT as usize / 2),
         );
         gl.viewport(2048.0, 2048.0, Self::WIDTH.into(), Self::HEIGHT.into());
-        // Chewing sceGum is not allowed
         gl.overwrite_projection_matrix(Mat4::IDENTITY);
         for mode in [MatrixMode::View, MatrixMode::Model, MatrixMode::Texture] {
             gl.overwrite_matrix(mode, Mat3By4::IDENTITY);
@@ -161,7 +159,7 @@ impl Gfx {
         gl.shading_model(sys::ShadingModel::Smooth);
         gl.patch_division(16, 16);
 
-        psp_sys::dprint!("initialized!");
+        psp_sys::dprint!("Gfx initialized!");
         Ok(Self {
             gl,
             vram_allocator,
@@ -231,9 +229,7 @@ impl Gfx {
 
     pub fn start_frame(&mut self) -> Frame<'_> {
         self.gl_mut().list_mut().start();
-        if self.double_buffer.is_some() {
-            let (double_buffer, is_drawn) =
-                self.double_buffer.as_mut().unwrap();
+        if let Some((double_buffer, is_drawn)) = self.double_buffer.as_mut() {
             if *is_drawn {
                 unsafe {
                     self.gl.set_frame_buffer(double_buffer).unwrap();
@@ -288,9 +284,8 @@ impl<'frame> Frame<'frame> {
         gl.finish()?;
         gl.list_mut()
             .sync(sys::GuSyncMode::Finish, sys::GuSyncBehavior::Wait);
-        if self.gfx.double_buffer.is_some() {
-            let (double_buffer, is_drawn) =
-                self.gfx.double_buffer.as_ref().unwrap();
+        if let Some((double_buffer, is_drawn)) = self.gfx.double_buffer.as_ref()
+        {
             if !*is_drawn {
                 self.gfx.gl.set_display_buffer(double_buffer)?;
             } else {

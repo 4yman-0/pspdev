@@ -240,10 +240,9 @@ impl Thread {
         native_error(unsafe { sys::sceKernelTerminateThread(self.0) })
     }
 
-    /* This is not needed
     pub fn terminate_and_delete(&mut self) -> NativeResult<()> {
         native_error(unsafe { sys::sceKernelTerminateDeleteThread(self.0) })
-    }*/
+    }
 }
 
 /*impl Drop for Thread {
@@ -252,7 +251,10 @@ impl Thread {
     }
 }*/
 
-pub unsafe fn spawn_unsafe<F>(name: &ffi::CStr, entry: F) -> NativeResult<Thread>
+pub unsafe fn spawn_unsafe<F>(
+    name: &ffi::CStr,
+    entry: F,
+) -> NativeResult<Thread>
 where
     F: FnOnce() -> NativeResult<()> + Send,
 {
@@ -262,8 +264,8 @@ where
         sys::ThreadAttributes::USER
             .union(sys::ThreadAttributes::VFPU)
             .union(sys::ThreadAttributes::NO_FILLSTACK);
-    //.union(sys::ThreadAttributes::SCRATCH_SRAM);
     // prevent ILLEGAL_ATTR
+    //.union(sys::ThreadAttributes::SCRATCH_SRAM);
     unsafe extern "C" fn function<F>(
         _arg_size: usize,
         arg: *mut ffi::c_void,
@@ -290,8 +292,7 @@ where
         None,
     )?;
     unsafe {
-        // This is absurd, if size_of::<F>() == 0
-        // (and it is because regular functions are ZSTs)
+        // if size_of::<F>() == 0,
         // The stupid OS will just throw away the pointer!
         thread.start(Box::new((entry, 0u8)))?;
     };
@@ -302,10 +303,7 @@ pub fn spawn<F>(name: &ffi::CStr, entry: F) -> NativeResult<Thread>
 where
     F: FnOnce() -> NativeResult<()> + Send + 'static,
 {
-	unsafe {
-		spawn_unsafe(name, entry)
-	}
+    unsafe { spawn_unsafe(name, entry) }
 }
 
-// We won't implement semaphores, nor mutexes, nor lw-mutexes
-// because the PSP kernel only supports one core.
+// TODO: do we need to implement sce* sync primitives?

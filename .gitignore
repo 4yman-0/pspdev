@@ -3,9 +3,9 @@
 
 /build
 /assets
+/examples/private
 # /tools
 # /converters
-/_bevy_port
 
 # ABSOLUTELY PROPRIETARY Sony Format
 *.at3
