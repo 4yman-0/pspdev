@@ -9,9 +9,6 @@ use crate::sys::{
 use core::{ffi::c_void, mem, ptr::addr_of_mut, ptr::null_mut};
 //use num_enum::TryFromPrimitive;
 
-#[allow(clippy::approx_constant)]
-pub const GU_PI: f32 = 3.141593;
-
 /// Primitive types
 #[repr(u32)]
 #[derive(Copy, Clone, Debug)]

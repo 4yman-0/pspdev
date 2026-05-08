@@ -28,7 +28,7 @@ pub struct Texture {
 
 impl Texture {
     /// Allocates a new `Texture`.
-    // TODO: documentation is unclear.
+    // // TODO: documentation is unclear.
     pub fn allocate(
         width: u16,
         height: u16,

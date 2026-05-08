@@ -14,7 +14,7 @@ renew() {
 }
 
 renew png pspt img-to-pspt "--format abgr8"
-renew webp pspt img-to-pspt "--format abgr4"
+renew webp pspt img-to-pspt "--format abgr5551"
 renew obj pspm model-to-pspm
 renew mtl psps mtl-to-psps
 

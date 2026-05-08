@@ -2,15 +2,15 @@ use alloc::{vec, vec::Vec};
 use psp_sys::sys;
 
 pub fn vram_size() -> usize {
-    (unsafe { psp_sys::sys::sceGeEdramGetSize() }) as usize
+    (unsafe { sys::sceGeEdramGetSize() }) as usize
 }
 
 fn vram_base() -> *mut u8 {
-    unsafe { psp_sys::sys::sceGeEdramGetAddr().cast() }
+    unsafe { sys::sceGeEdramGetAddr().cast() }
 }
 
 fn align_up(addr: usize, align: usize) -> usize {
-    debug_assert!(align.is_power_of_two());
+    assert!(align.is_power_of_two());
     (addr + align - 1) & !(align - 1)
 }
 
@@ -89,16 +89,16 @@ impl VramAllocator {
     }
 
     fn coalesce(&mut self) {
-        self.free.sort_by_key(|n| n.start());
-
         let mut merged: Vec<VramNode> = Vec::new();
 
+        self.free.sort_by_key(|n| n.start());
+
         for node in self.free.drain(..) {
-            if let Some(last) = merged.last_mut() {
-                if last.end() == node.start() {
-                    last.size += node.size;
-                    continue;
-                }
+            if let Some(last) = merged.last_mut()
+                && last.end() == node.start()
+            {
+                last.size += node.size;
+                continue;
             }
 
             merged.push(node);

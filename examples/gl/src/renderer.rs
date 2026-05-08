@@ -7,7 +7,7 @@ use psp_apis::gfx::{
 use glam::{Vec2, Vec3};
 use psp_sys::sys;
 
-#[repr(C)]
+/*#[repr(C)]
 #[allow(dead_code)]
 struct Vert16 {
     vertex: [i16; 3],
@@ -42,7 +42,7 @@ pub(crate) fn render_aabb(
     )?;
     gl.draw_primitives(v, sys::GuPrimitive::Sprites);
     Ok(())
-}
+}*/
 
 #[repr(C)]
 #[allow(dead_code)]

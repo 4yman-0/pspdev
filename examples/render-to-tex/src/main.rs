@@ -80,15 +80,6 @@ const DISPLAYS_INDICES: &[u16] = &[0, 1, 2, 0, 2, 3];
 
 psp_sys::module!("gl", 0, 1);
 
-const fn matrix_3_by_4(matrix: Mat3, translation: Vec3) -> Mat3By4 {
-    Mat3By4 {
-        x_axis: matrix.x_axis,
-        y_axis: matrix.y_axis,
-        z_axis: matrix.z_axis,
-        w_axis: translation,
-    }
-}
-
 const DISPLAY_TRANSFORMS: &[Mat3By4] = &[
     Mat3By4::from_scale_translation(
         Vec3::new(2.0, 1.0, 0.0),
@@ -165,7 +156,6 @@ fn psp_main() {
         gl.light_mode(sys::LightMode::SeparateSpecularColor);
         Ok(())
     }));
-    dprint!("SETUP PASS SUCCESS");
     let emulated = Directory::open(c"ms0:/PSP/GAME/PSPDEV_EMU").is_ok();
 
     if emulated {
@@ -176,24 +166,16 @@ fn psp_main() {
 
     let mut frame_clock = FrameClock::default();
 
-    dprint!("Making tex");
-    let mut texture = Texture::allocate(
-        gfx.vram_allocator_mut(),
-        64,
-        32,
-        sys::TexturePixelFormat::Psm5650,
-        false,
-    )
-    .unwrap();
-    dprint!("fn. Making tex");
+    let mut texture =
+        Texture::allocate(64, 32, sys::TexturePixelFormat::Psm5650, false);
 
     let mut yaw = 0_f32;
 
     loop {
         frame_clock = frame_clock.update();
-        yaw += 0.05;
+        yaw += 0.005;
         if yaw > ::core::f32::consts::PI * 2.0 {
-            yaw = 0.0;
+            yaw -= ::core::f32::consts::PI * 2.0;
         }
 
         warn_unwrap((|| {
@@ -203,7 +185,7 @@ fn psp_main() {
             set_frame_size(gl, texture.width(), texture.height())?;
             gl.set_matrix(
                 MatrixMode::View,
-                &matrix_3_by_4(Mat3::IDENTITY, Vec3::ZERO),
+                &Mat3By4::IDENTITY,
             );
             unsafe {
                 gl.set_frame_buffer(&mut texture).unwrap();
@@ -219,7 +201,7 @@ fn psp_main() {
             gl.clear_color(Color32::WHITE);
             gl.set_matrix(
                 MatrixMode::Model,
-                &matrix_3_by_4(
+                &Mat3By4::from_mat3_vec3(
                     Mat3::from_rotation_y(yaw),
                     Vec3::new(0.0, 0.0, -1.0),
                 ),
@@ -252,7 +234,7 @@ fn psp_main() {
             {
                 // Gran Turismo jittering
                 const JITTER: f32 = 1.0 / 272.0;
-                let mut view = matrix_3_by_4(Mat3::IDENTITY, Vec3::ZERO);
+                let mut view = Mat3By4::IDENTITY;
                 if frame_clock.edge_clock(2) {
                     view.w_axis.x += JITTER;
                 }

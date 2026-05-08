@@ -106,10 +106,11 @@ pub(crate) const fn vt_size(
         i += 1;
     }
     // hacks...
-    match size {
+    /*match size {
         10 => 12,
         _ => size,
-    }
+    }*/
+    size
 }
 
 pub const fn const_vt_size(vertex_type: VertType) -> VertexSize {

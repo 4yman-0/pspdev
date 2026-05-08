@@ -104,10 +104,10 @@ impl File {
             Ok(bytes_written)
         }
     }
-    pub fn write_all(&mut self, data: &mut [u8]) -> FsResult<()> {
+    pub fn write_all(&mut self, data: &[u8]) -> FsResult<()> {
         let mut head = 0usize;
         while head < data.len() {
-            head += self.write(&mut data[head..])?;
+            head += self.write(&data[head..])?;
         }
         Ok(())
     }
