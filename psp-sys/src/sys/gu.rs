@@ -940,13 +940,8 @@ pub unsafe extern "C" fn sceGuDrawBufferList(
     );
 }
 
-/// Initalize the GU system
-///
-/// This function MUST be called as the first function, otherwise state is undetermined.
-#[allow(non_snake_case)]
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn sceGuInit() {
-    const INIT_COMMANDS: [GeCommand; 223] = [
+static INIT_LIST: crate::Align16<[u32; 223]> = crate::Align16({
+    let init_commands: [GeCommand; 223] = [
         GeCommand::Vaddr,
         GeCommand::Iaddr,
         GeCommand::Base,
@@ -1171,19 +1166,23 @@ pub unsafe extern "C" fn sceGuInit() {
         GeCommand::Nop,
         GeCommand::Nop,
     ];
+    let mut out = [0; 223];
 
-    static INIT_LIST: crate::Align16<[u32; 223]> = crate::Align16({
-        let mut out = [0; 223];
+    let mut i = 0;
+    while i < 223 {
+        out[i] = (init_commands[i] as u32) << 24;
+        i += 1;
+    }
 
-        let mut i = 0;
-        while i < 223 {
-            out[i] = (INIT_COMMANDS[i] as u32) << 24;
-            i += 1;
-        }
+    out
+});
 
-        out
-    });
-
+/// Initalize the GU system
+///
+/// This function MUST be called as the first function, otherwise state is undetermined.
+#[allow(non_snake_case)]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn sceGuInit() {
     let mut callback = crate::sys::GeCallbackData {
         signal_func: Some(callback_sig),
         signal_arg: addr_of_mut!(SETTINGS).cast::<c_void>(),
@@ -1405,7 +1404,7 @@ pub unsafe extern "C" fn sceGuSendList(
 ///
 /// # Return Value
 ///
-/// Unknown at this time. GeListState?
+/// GeListState
 #[allow(non_snake_case)]
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn sceGuSync(

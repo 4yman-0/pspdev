@@ -5,7 +5,6 @@
 
 extern crate alloc;
 
-use psp_apis::display::wait_vblank_start;
 use psp_apis::fs::{
     Directory,
     //self,
@@ -15,11 +14,11 @@ use psp_apis::gfx::{
     Gfx,
     color::Color32,
     gl::{GlResult, Mat3By4, MatrixMode},
-    vertex::{Vertex, VertexSize, const_vt_size},
+    vertex::{VertexSize, const_vt_size},
 };
 
 //use alloc::{boxed::Box /*, vec::Vec*/};
-use glam::{EulerRot, Mat3, Mat4, Vec2, Vec3};
+use glam::{Mat4, Vec3};
 use psp_sys::{dprint, enable_home_button, sys};
 
 mod frame_clock;
@@ -45,25 +44,16 @@ const MODEL_VERTICES: &[Vert] = &[
     },
     Vert {
         weight: [0.0, 1.0],
-        position: [ 0.0, 0.5, 0.0],
+        position: [0.0, 0.5, 0.0],
     },
     Vert {
         weight: [1.0, 0.0],
         position: [-0.5, -0.5, 0.0],
     },
 ];
-const MODEL_INDICES: &[u16] = &[0, 1, 2,];
+const MODEL_INDICES: &[u16] = &[0, 1, 2];
 
-psp_sys::module!("gl", 0, 1);
-
-const fn matrix_3_by_4(matrix: Mat3, translation: Vec3) -> Mat3By4 {
-    Mat3By4 {
-        x_axis: matrix.x_axis,
-        y_axis: matrix.y_axis,
-        z_axis: matrix.z_axis,
-        w_axis: translation,
-    }
-}
+psp_sys::module!("anim", 0, 1);
 
 fn warn_unwrap(result: GlResult<()>) {
     result.unwrap_or_else(|err| dprint!("Warning: {err:?}"));
@@ -75,7 +65,7 @@ fn deg_to_rad(deg: f32) -> f32 {
 
 fn psp_main() {
     enable_home_button();
-    let mut gfx = Gfx::init()
+    let mut gfx = Gfx::init(sys::TexturePixelFormat::Psm8888)
         .unwrap()
         .depth_test()
         .double_buffering()
@@ -129,8 +119,6 @@ fn psp_main() {
     let mut frame_clock = FrameClock::default();
 
     loop {
-        wait_vblank_start();
-
         frame_clock = frame_clock.update();
 
         warn_unwrap(gfx.start_frame_with(|frame| {
@@ -145,7 +133,7 @@ fn psp_main() {
             {
                 // Gran Turismo jittering
                 const JITTER: f32 = 1.0 / 272.0;
-                let mut view = matrix_3_by_4(Mat3::IDENTITY, Vec3::ZERO);
+                let mut view = Mat3By4::IDENTITY;
                 if frame_clock.edge_clock(2) {
                     view.w_axis.x += JITTER;
                 }
@@ -159,18 +147,15 @@ fn psp_main() {
 
             gl.set_matrix(
                 MatrixMode::Model,
-                &matrix_3_by_4(Mat3::IDENTITY, Vec3::new(0.0, 0.0, -1.0)),
+                &Mat3By4::from_translation(Vec3::new(0.0, 0.0, -1.0)),
             );
             gl.set_bone_matrix(
                 1,
-                &matrix_3_by_4(
-                    Mat3::IDENTITY,
-                    Vec3::new(
-                        f32::from(frame_clock.continous_clock(30)) * 0.2,
-                        0.0,
-                        0.0,
-                    ),
-                ),
+                &Mat3By4::from_translation(Vec3::new(
+                    f32::from(frame_clock.continous_clock(30)) * 0.2,
+                    0.0,
+                    0.0,
+                )),
             );
             gl.morph_weight(0, 1.0);
             gl.morph_weight(1, 1.0);
@@ -183,5 +168,7 @@ fn psp_main() {
             gl.draw_primitives(v, MODEL_PRIMITIVE);
             Ok(())
         }));
+
+        psp_apis::display::wait_vblank();
     }
 }

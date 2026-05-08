@@ -36,7 +36,7 @@ impl From<NativeError> for FsError {
 }
 
 pub struct File {
-    uid: sys::SceUid,
+    pub(crate) uid: sys::SceUid,
 }
 
 impl File {
@@ -104,6 +104,13 @@ impl File {
             Ok(bytes_written)
         }
     }
+    pub fn write_all(&mut self, data: &mut [u8]) -> FsResult<()> {
+        let mut head = 0usize;
+        while head < data.len() {
+            head += self.write(&mut data[head..])?;
+        }
+        Ok(())
+    }
     pub fn write_async(&self, data: &[u8]) -> FsResult<()> {
         let bytes_written = unsafe {
             sys::sceIoWriteAsync(
@@ -132,6 +139,13 @@ impl File {
         } else {
             Ok(bytes_written)
         }
+    }
+    pub fn read_all(&mut self, data: &mut [u8]) -> FsResult<()> {
+        let mut head = 0usize;
+        while head < data.len() {
+            head += self.read(&mut data[head..])?;
+        }
+        Ok(())
     }
     pub fn read_async(&mut self, data: &mut [u8]) -> FsResult<()> {
         let bytes_written = unsafe {

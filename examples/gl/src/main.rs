@@ -21,13 +21,10 @@ use psp_apis::gfx::{
     index::IndexItem,
     texture::{Texture, texture_pixel_size},
     vertex::{Vertex, VertexSize},
-    vram_alloc::VramAllocator,
+    vram_alloc::VramChunk,
 };
+use psp_apis::input::{Buttons, Input};
 use psp_apis::kernel;
-use psp_apis::{
-    display::wait_vblank_start,
-    input::{Buttons, Input},
-};
 
 use aligned_box::AlignedBox;
 //use alloc::{boxed::Box /*, vec::Vec*/};
@@ -39,15 +36,6 @@ use frame_clock::FrameClock;
 
 psp_sys::module!("gl", 0, 1);
 
-const fn matrix_3_by_4(matrix: Mat3, translation: Vec3) -> Mat3By4 {
-    Mat3By4 {
-        x_axis: matrix.x_axis,
-        y_axis: matrix.y_axis,
-        z_axis: matrix.z_axis,
-        w_axis: translation,
-    }
-}
-
 fn warn_unwrap(result: GlResult<()>) {
     result.unwrap_or_else(|err| dprint!("Warning: {err:?}"));
 }
@@ -58,20 +46,17 @@ fn deg_to_rad(deg: f32) -> f32 {
 
 unsafe fn read_u32(file: &mut File) -> u32 {
     let mut buf: [u8; 4] = [0u8; 4];
-    file.read(&mut buf).unwrap();
+    file.read_all(&mut buf).unwrap();
     u32::from_le_bytes(buf)
 }
 
 unsafe fn read_u16(file: &mut File) -> u16 {
     let mut buf: [u8; 2] = [0u8; 2];
-    file.read(&mut buf).unwrap();
+    file.read_all(&mut buf).unwrap();
     u16::from_le_bytes(buf)
 }
 
-fn load_texture(
-    file_name: &core::ffi::CStr,
-    vram_allocator: &mut VramAllocator,
-) -> Texture {
+fn load_texture(file_name: &core::ffi::CStr) -> Texture {
     let mut file = File::open(file_name, sys::IoOpenFlags::RD_ONLY).unwrap();
 
     let _file_size = file.seek_i32(0, sys::IoWhence::End) as usize;
@@ -83,7 +68,7 @@ fn load_texture(
 
     // TODO: this should be `mut`
     let swizzled: u8 = 0;
-    file.read(&mut [swizzled]).unwrap();
+    file.read_all(&mut [swizzled]).unwrap();
     let swizzled = swizzled == 1;
 
     let width: u32 = unsafe { read_u32(&mut file) };
@@ -93,18 +78,13 @@ fn load_texture(
     let mut ram_texture = alloc::boxed::Box::<[u8]>::new_uninit_slice(
         (width * height) as usize * texture_pixel_size(format),
     );
-    file.read(unsafe { ram_texture.assume_init_mut() }).unwrap();
+    file.read_all(unsafe { ram_texture.assume_init_mut() })
+        .unwrap();
     let ram_texture = unsafe { ram_texture.assume_init() };
     kernel::data_cache_writeback_invalidate(&ram_texture);
 
-    let mut texture = Texture::allocate(
-        vram_allocator,
-        width as u16,
-        height as u16,
-        format,
-        swizzled,
-    )
-    .unwrap();
+    let mut texture =
+        Texture::allocate(width as u16, height as u16, format, swizzled);
 
     texture.buffer_mut().copy_from_slice(&ram_texture);
     kernel::data_cache_writeback_invalidate(texture.buffer());
@@ -130,12 +110,12 @@ fn load_model(file_name: &core::ffi::CStr) -> Model {
     file.seek_i32(0, sys::IoWhence::Set);
 
     let mut primitive = [0u8; 4];
-    file.read(&mut primitive).unwrap();
+    file.read_all(&mut primitive).unwrap();
     let primitive: sys::GuPrimitive =
         unsafe { core::mem::transmute(primitive) };
 
     let mut vertex_type = [0u8; 4];
-    file.read(&mut vertex_type).unwrap();
+    file.read_all(&mut vertex_type).unwrap();
     let vertex_type =
         sys::VertexType::from_bits(i32::from_le_bytes(vertex_type)).unwrap();
     let vertex_size = vertex_type.vertex_size();
@@ -151,14 +131,14 @@ fn load_model(file_name: &core::ffi::CStr) -> Model {
         vertices_size,
     )
     .unwrap();
-    file.read(&mut vertices).unwrap();
+    file.read_all(&mut vertices).unwrap();
 
     let mut indices = AlignedBox::<[u8]>::slice_from_default(
         vertex_type.index_size().next_power_of_two(),
         indices_size,
     )
     .unwrap();
-    file.read(&mut indices).unwrap();
+    file.read_all(&mut indices).unwrap();
 
     drop(file);
 
@@ -214,7 +194,7 @@ fn load_shading(file_name: &core::ffi::CStr) -> Shading {
     let use_specular_coeff = unsafe { read_u16_as_bool(&mut file) };
 
     let mut specular_coeff = [0u8; 4];
-    file.read(&mut specular_coeff).unwrap();
+    file.read_all(&mut specular_coeff).unwrap();
     let specular_coeff = f32::from_le_bytes(specular_coeff);
 
     drop(file);
@@ -353,19 +333,15 @@ fn psp_main() {
 
     let shading = load_shading(asset!(emulated, "test.psps"));
 
-    let texture =
-        load_texture(asset!(emulated, "test.pspt"), gfx.vram_allocator_mut());
+    let texture = load_texture(asset!(emulated, "test.pspt"));
 
-    let lamp_texture =
-        load_texture(asset!(emulated, "lamp.pspt"), gfx.vram_allocator_mut());
+    let lamp_texture = load_texture(asset!(emulated, "lamp.pspt"));
 
     let mut translation = Vec3::new(0.0, 0.0, -2.0);
     let mut rotation = Vec3::ZERO;
     let mut frame_clock = FrameClock::default();
 
     loop {
-        wait_vblank_start();
-
         frame_clock = frame_clock.update();
         input.read_mut();
 
@@ -412,7 +388,7 @@ fn psp_main() {
             {
                 // Gran Turismo jittering
                 const JITTER: f32 = 1.0 / 272.0;
-                let mut view = matrix_3_by_4(Mat3::IDENTITY, Vec3::ZERO);
+                let mut view = Mat3By4::IDENTITY;
                 if frame_clock.edge_clock(2) {
                     view.w_axis.x += JITTER;
                 }
@@ -449,14 +425,14 @@ fn psp_main() {
 
             gl.set_matrix(
                 MatrixMode::Model,
-                &matrix_3_by_4(
+                &Mat3By4::from_mat3_vec3(
                     Mat3::from_scale(Vec2::new(1.0, 1.0))
-	                   * Mat3::from_euler(
-	                       EulerRot::XYZEx,
-	                       rotation.x,
-	                       rotation.y,
-	                       rotation.z,
-	                   ),
+                        * Mat3::from_euler(
+                            EulerRot::XYZEx,
+                            rotation.x,
+                            rotation.y,
+                            rotation.z,
+                        ),
                     translation,
                 ),
             );
@@ -473,5 +449,7 @@ fn psp_main() {
             gl.set_state(sys::GuState::Texture2D, false);
             Ok(())
         }));
+
+        psp_apis::display::wait_vblank();
     }
 }

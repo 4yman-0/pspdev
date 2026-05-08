@@ -5,7 +5,6 @@
 
 extern crate alloc;
 
-use psp_apis::display::wait_vblank_start;
 use psp_apis::fs::{
     Directory,
     //self,
@@ -14,14 +13,13 @@ use psp_apis::fs::{
 use psp_apis::gfx::{
     Gfx,
     color::Color32,
-    gl::{GlResult, Mat3By4, MatrixMode},
-    index::IndexItem,
-    texture::{Texture, texture_pixel_size},
-    vertex::{Vertex, VertexSize, const_vt_size},
+    gl::{Gl, GlResult, Mat3By4, MatrixMode},
+    texture::{Texture /*, texture_pixel_size*/},
+    vertex::{VertexSize, const_vt_size},
 };
 
 //use alloc::{boxed::Box /*, vec::Vec*/};
-use glam::{EulerRot, Mat3, Mat4, Vec2, Vec3};
+use glam::{Mat3, Mat4, Vec3};
 use psp_sys::{dprint, enable_home_button, sys};
 
 mod frame_clock;
@@ -41,7 +39,7 @@ const TRIANGLE_VERTICES: &[Vert] = &[
         position: [0.5, -0.5, 0.0],
     },
     Vert {
-        position: [ 0.0, 0.5, 0.0],
+        position: [0.0, 0.5, 0.0],
     },
     Vert {
         position: [-0.5, -0.5, 0.0],
@@ -50,14 +48,14 @@ const TRIANGLE_VERTICES: &[Vert] = &[
 
 #[repr(C)]
 struct Vert16Tex8 {
-	uv: [u8; 2],
+    uv: [u8; 2],
     pos: [i16; 3],
 }
 
 const DISPLAYS_PRIMITIVE: sys::GuPrimitive = sys::GuPrimitive::Triangles;
 const DISPLAYS_VERTEX_TYPE: sys::VertexType = sys::VertexType::VERTEX_16BIT
-	.union(sys::VertexType::TEXTURE_8BIT)
-	.union(sys::VertexType::INDEX_16BIT);
+    .union(sys::VertexType::TEXTURE_8BIT)
+    .union(sys::VertexType::INDEX_16BIT);
 const DISPLAYS_VERTEX_SIZE: VertexSize = const_vt_size(DISPLAYS_VERTEX_TYPE);
 
 const DISPLAYS_VERTICES: &[Vert16Tex8] = &[
@@ -78,10 +76,7 @@ const DISPLAYS_VERTICES: &[Vert16Tex8] = &[
         uv: [0, 0],
     },
 ];
-const DISPLAYS_INDICES: &[u16] = &[
-	0, 1, 2,
-	0, 2, 3,
-];
+const DISPLAYS_INDICES: &[u16] = &[0, 1, 2, 0, 2, 3];
 
 psp_sys::module!("gl", 0, 1);
 
@@ -94,6 +89,21 @@ const fn matrix_3_by_4(matrix: Mat3, translation: Vec3) -> Mat3By4 {
     }
 }
 
+const DISPLAY_TRANSFORMS: &[Mat3By4] = &[
+    Mat3By4::from_scale_translation(
+        Vec3::new(2.0, 1.0, 0.0),
+        Vec3::new(-1.0, -0.5, -1.0),
+    ),
+    Mat3By4::from_scale_translation(
+        Vec3::new(2.0, 1.0, 0.0),
+        Vec3::new(-2.5, -1.7, -1.7),
+    ),
+    Mat3By4::from_scale_translation(
+        Vec3::new(2.0, 1.0, 0.0),
+        Vec3::new(0.5, 0.5, -1.5),
+    ),
+];
+
 fn warn_unwrap(result: GlResult<()>) {
     result.unwrap_or_else(|err| dprint!("Warning: {err:?}"));
 }
@@ -102,9 +112,17 @@ fn deg_to_rad(deg: f32) -> f32 {
     deg * (core::f32::consts::PI / 180.0)
 }
 
+fn set_frame_size(gl: &mut Gl, width: u16, height: u16) -> GlResult<()> {
+    gl.draw_region(0, 0, width, height)?;
+    gl.scissor_region(0, 0, width, height)?;
+    gl.offset(2048 - (width as usize / 2), 2048 - (height as usize / 2));
+    gl.viewport(2048.0, 2048.0, width as _, height as _);
+    Ok(())
+}
+
 fn psp_main() {
     enable_home_button();
-    let mut gfx = Gfx::init()
+    let mut gfx = Gfx::init(sys::TexturePixelFormat::Psm8888)
         .unwrap()
         .depth_test()
         .double_buffering()
@@ -158,49 +176,37 @@ fn psp_main() {
 
     let mut frame_clock = FrameClock::default();
 
-	let mut texture = Texture::allocate(
-		gfx.vram_allocator_mut(),
-		64,
-		32,
-		sys::TexturePixelFormat::Psm5650,
-		false,
-	).unwrap();
+    dprint!("Making tex");
+    let mut texture = Texture::allocate(
+        gfx.vram_allocator_mut(),
+        64,
+        32,
+        sys::TexturePixelFormat::Psm5650,
+        false,
+    )
+    .unwrap();
+    dprint!("fn. Making tex");
 
-	let mut yaw = 0_f32;
+    let mut yaw = 0_f32;
 
     loop {
-        wait_vblank_start();
-
         frame_clock = frame_clock.update();
-		yaw += 0.05;
-		if yaw > ::core::f32::consts::PI * 2.0 {
-			yaw = 0.0;
-		}
+        yaw += 0.05;
+        if yaw > ::core::f32::consts::PI * 2.0 {
+            yaw = 0.0;
+        }
 
-		warn_unwrap((|| {
-			let gl = gfx.gl_mut();
-			gl.list_mut().start();
+        warn_unwrap((|| {
+            let gl = gfx.gl_mut();
+            gl.list_mut().start();
 
-			let (tw, th) = (texture.width(), texture.height());
-			gl.draw_region(0, 0, tw, th)?;
-			gl.scissor_region(0, 0, texture.width(), texture.height())?;
-	        gl.offset(
-	            2048 - (tw as usize / 2),
-	            2048 - (th as usize / 2),
-	        );
-	        gl.viewport(
-	            2048.0,
-	            2048.0,
-				tw as _,
-				th as _,
-	        );
-
-            gl.set_matrix(MatrixMode::View, &matrix_3_by_4(
-            	Mat3::IDENTITY,
-            	Vec3::ZERO,
-            ));
+            set_frame_size(gl, texture.width(), texture.height())?;
+            gl.set_matrix(
+                MatrixMode::View,
+                &matrix_3_by_4(Mat3::IDENTITY, Vec3::ZERO),
+            );
             unsafe {
-            	gl.set_frame_buffer(&mut texture).unwrap();
+                gl.set_frame_buffer(&mut texture).unwrap();
             }
             gl.clear_color(Color32::DARK_GRAY);
             gl.clear(
@@ -214,8 +220,8 @@ fn psp_main() {
             gl.set_matrix(
                 MatrixMode::Model,
                 &matrix_3_by_4(
-                	Mat3::from_rotation_y(yaw),
-                	Vec3::new(0.0, 0.0, -1.0)
+                    Mat3::from_rotation_y(yaw),
+                    Vec3::new(0.0, 0.0, -1.0),
                 ),
             );
             let v = gl.bind_vertices(
@@ -226,23 +232,13 @@ fn psp_main() {
             gl.draw_primitives(v, TRIANGLE_PRIMITIVE);
             gl.set_state(sys::GuState::CullFace, true);
 
-			gl.draw_region(0, 0, 480, 272)?;
-			gl.scissor_region(0, 0, 480, 272)?;
-	        gl.offset(
-	            2048 - (480_usize / 2),
-	            2048 - (272_usize / 2),
-	        );
-	        gl.viewport(
-	            2048.0,
-	            2048.0,
-				480.0,
-				272.0,
-	        );
+            set_frame_size(gl, 480, 272)?;
 
             gl.finish().unwrap();
-            gl.list_mut().sync(sys::GuSyncMode::List, sys::GuSyncBehavior::Wait);
+            gl.list_mut()
+                .sync(sys::GuSyncMode::List, sys::GuSyncBehavior::Wait);
             Ok(())
-		})());
+        })());
 
         warn_unwrap(gfx.start_frame_with(|frame| {
             let gl = frame.gl_mut();
@@ -255,7 +251,7 @@ fn psp_main() {
 
             {
                 // Gran Turismo jittering
-                const JITTER: f32 = 0.5 / 272.0;
+                const JITTER: f32 = 1.0 / 272.0;
                 let mut view = matrix_3_by_4(Mat3::IDENTITY, Vec3::ZERO);
                 if frame_clock.edge_clock(2) {
                     view.w_axis.x += JITTER;
@@ -266,41 +262,27 @@ fn psp_main() {
                 gl.set_matrix(MatrixMode::View, &view)
             }
 
-			gl.texture_filter(
-				sys::TextureFilter::Linear,
-				sys::TextureFilter::Linear,
-			);
+            gl.texture_filter(
+                sys::TextureFilter::Linear,
+                sys::TextureFilter::Linear,
+            );
             gl.clear_color(Color32::WHITE);
             gl.set_state(sys::GuState::Texture2D, true);
             gl.texture(sys::MipmapLevel::None, &texture);
-            for m3b4 in &[
-				matrix_3_by_4(
-                	Mat3::from_scale(Vec2::new(2.0, 1.0)),
-                	Vec3::new(-1.0, -0.5, -1.0),
-                ),
-				matrix_3_by_4(
-                	Mat3::from_scale(Vec2::new(2.0, 1.0)),
-                	Vec3::new(-2.5, -1.7, -1.7),
-                ),
-				matrix_3_by_4(
-                	Mat3::from_scale(Vec2::new(2.0, 1.0)),
-                	Vec3::new(0.5, 0.5, -1.5),
-                ),
-            ] {
-	            gl.set_matrix(
-	                MatrixMode::Model,
-	                m3b4,
-	            );
-	            let v = gl.bind_indexed_vertices(
-	                DISPLAYS_VERTEX_TYPE,
-	                DISPLAYS_VERTEX_SIZE,
-	                DISPLAYS_VERTICES,
-	                DISPLAYS_INDICES,
-	            )?;
-	            gl.draw_primitives(v, DISPLAYS_PRIMITIVE);
-	        }
+            for m3b4 in DISPLAY_TRANSFORMS {
+                gl.set_matrix(MatrixMode::Model, m3b4);
+                let v = gl.bind_indexed_vertices(
+                    DISPLAYS_VERTEX_TYPE,
+                    DISPLAYS_VERTEX_SIZE,
+                    DISPLAYS_VERTICES,
+                    DISPLAYS_INDICES,
+                )?;
+                gl.draw_primitives(v, DISPLAYS_PRIMITIVE);
+            }
             gl.set_state(sys::GuState::Texture2D, false);
             Ok(())
         }));
+
+        psp_apis::display::wait_vblank();
     }
 }

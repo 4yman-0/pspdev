@@ -1,33 +1,5 @@
-use super::vram_alloc::{VramAllocator, VramAllocatorError};
-use core::ptr::NonNull;
-use core::slice;
+use super::vram_alloc::VramChunk;
 use psp_sys::sys::TexturePixelFormat;
-pub type TextureResult<T> = Result<T, TextureError>;
-
-#[derive(Clone, Debug)]
-pub enum TextureError {
-    VramAllocatorError(VramAllocatorError),
-
-    TextureTooSmall,
-    WidthNotPowerOfTwo,
-    InvalidInternalBuffer,
-}
-
-impl From<VramAllocatorError> for TextureError {
-    fn from(from: VramAllocatorError) -> Self {
-        Self::VramAllocatorError(from)
-    }
-}
-
-impl core::fmt::Display for TextureError {
-    fn fmt(
-        &self,
-        f: &mut core::fmt::Formatter<'_>,
-    ) -> Result<(), core::fmt::Error> {
-        write!(f, "{self:?}")
-    }
-}
-impl core::error::Error for TextureError {}
 
 pub fn texture_pixel_size(psm: TexturePixelFormat) -> usize {
     match psm {
@@ -46,62 +18,33 @@ pub fn texture_pixel_size(psm: TexturePixelFormat) -> usize {
     }
 }
 
-// TODO: figure out why RAM texture don't work
+// // TODO: figure out why RAM texture don't work
 pub struct Texture {
     size: (u16, u16),
     format: TexturePixelFormat,
     swizzled: bool,
-    buffer: NonNull<[u8]>,
+    chunk: VramChunk,
 }
 
 impl Texture {
     /// Allocates a new `Texture`.
     // TODO: documentation is unclear.
     pub fn allocate(
-        vram_allocator: &mut VramAllocator,
         width: u16,
         height: u16,
         format: TexturePixelFormat,
         swizzled: bool,
-    ) -> TextureResult<Self> {
-        Self::from_slice(
-            unsafe {
-                let length = width as usize * height as usize;
-                let size = length * texture_pixel_size(format);
-                let ptr = vram_allocator.allocate(size)?;
-                slice::from_raw_parts(ptr.cast(), size)
+    ) -> Self {
+        Self {
+            chunk: {
+                let pixel_size = texture_pixel_size(format);
+                let size = width as usize * height as usize * pixel_size;
+                VramChunk::alloc(size, pixel_size)
             },
-            width,
-            height,
-            format,
-            swizzled,
-        )
-    }
-
-    pub fn from_slice(
-        slice: &[u8],
-        width: u16,
-        height: u16,
-        format: TexturePixelFormat,
-        swizzled: bool,
-    ) -> TextureResult<Self> {
-        if !width.is_power_of_two() {
-            return Err(TextureError::WidthNotPowerOfTwo);
-        }
-        if width < 4 || height == 0 {
-            return Err(TextureError::TextureTooSmall);
-        }
-        if usize::from(width) * usize::from(height) * texture_pixel_size(format)
-            != core::mem::size_of_val(slice)
-        {
-            return Err(TextureError::InvalidInternalBuffer);
-        }
-        Ok(Self {
             size: (width, height),
-            swizzled,
             format,
-            buffer: NonNull::from_ref(slice),
-        })
+            swizzled,
+        }
     }
 
     pub fn size(&self) -> (u16, u16) {
@@ -123,10 +66,10 @@ impl Texture {
         self.swizzled = swizzled;
     }
     pub fn buffer(&self) -> &[u8] {
-        unsafe { self.buffer.as_ref() }
+        self.chunk.as_ref()
     }
     pub fn buffer_mut(&mut self) -> &mut [u8] {
-        unsafe { self.buffer.as_mut() }
+        self.chunk.as_mut()
     }
     pub fn can_be_framebuffer(&self) -> bool {
         use TexturePixelFormat as TexelFmt;
@@ -150,28 +93,7 @@ impl Texture {
         if !width.is_multiple_of(16) || !height.is_multiple_of(8) {
             return None;
         }
-
-        let dst = self.buffer_mut();
-
-        // TODO: actual swizzling
-        let rowblocks = width / 16;
-
-        for y in 0..height {
-            for x in 0..width {
-                let l_x = x % 16;
-                let l_y = y % 8;
-                let blockx = (x - l_x) / 16;
-                let blocky = (y - l_y) / 8;
-                let block_index = blockx + (blocky * rowblocks);
-                let block_address = block_index * 16 * 8;
-
-                dst[block_address + (l_y * 16) + l_x] = src[x + (y * width)];
-            }
-        }
-
-        let _ = dst;
-
-        self.swizzled = true;
-        Some(())
+        todo!();
+        //Some(())
     }
 }

@@ -28,6 +28,5 @@ panic = []
 [dependencies]
 paste = "1.0.15"
 bitflags = "2.6.0"
-libm = "0.2.8"
 #embedded-graphics-core = { version = "0.4.0", optional = true }
 unstringify = "0.1.4"

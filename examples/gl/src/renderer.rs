@@ -4,17 +4,8 @@ use psp_apis::gfx::{
     vertex::{VertexSize, const_vt_size},
 };
 
-use glam::{Mat3, Vec2, Vec3};
+use glam::{Vec2, Vec3};
 use psp_sys::sys;
-
-pub(crate) const fn matrix_3_by_4(matrix: Mat3, translation: Vec3) -> Mat3By4 {
-    Mat3By4 {
-        x_axis: matrix.x_axis,
-        y_axis: matrix.y_axis,
-        z_axis: matrix.z_axis,
-        w_axis: translation,
-    }
-}
 
 #[repr(C)]
 #[allow(dead_code)]
@@ -34,6 +25,24 @@ static RENDER_AABB_VERTS: &[Vert16] = &[
         vertex: [i16::MAX, i16::MAX, 0],
     },
 ];
+
+pub(crate) fn render_aabb(
+    gl: &mut Gl,
+    position: Vec3,
+    size: Vec2,
+) -> GlResult<()> {
+    gl.set_matrix(
+        MatrixMode::Model,
+        &Mat3By4::from_scale_translation(size.extend(0.0), position),
+    );
+    let v = gl.bind_vertices(
+        Vert16::VERT_TYPE,
+        Vert16::VERT_SIZE,
+        RENDER_AABB_VERTS,
+    )?;
+    gl.draw_primitives(v, sys::GuPrimitive::Sprites);
+    Ok(())
+}
 
 #[repr(C)]
 #[allow(dead_code)]
@@ -61,24 +70,6 @@ static RENDER_AABB_TEX_VERTS: &[Vert16Tex8] = &[
     },
 ];
 
-pub(crate) fn render_aabb(
-    gl: &mut Gl,
-    position: Vec3,
-    size: Vec2,
-) -> GlResult<()> {
-    gl.set_matrix(
-        MatrixMode::Model,
-        &matrix_3_by_4(Mat3::from_scale(size), position),
-    );
-    let v = gl.bind_vertices(
-        Vert16::VERT_TYPE,
-        Vert16::VERT_SIZE,
-        RENDER_AABB_VERTS,
-    )?;
-    gl.draw_primitives(v, sys::GuPrimitive::Sprites);
-    Ok(())
-}
-
 pub(crate) fn render_tex_aabb(
     gl: &mut Gl,
     texture: &Texture,
@@ -89,7 +80,7 @@ pub(crate) fn render_tex_aabb(
     gl.texture(sys::MipmapLevel::None, texture);
     gl.set_matrix(
         MatrixMode::Model,
-        &matrix_3_by_4(Mat3::from_scale(size), position),
+        &Mat3By4::from_scale_translation(size.extend(0.0), position),
     );
     let v = gl.bind_vertices(
         Vert16Tex8::VERT_TYPE,

@@ -1,15 +1,16 @@
+#BINARY_NAME=psp-apis -F glam/nostd-libm
 #BINARY_NAME=gl
-BINARY_NAME=music
+#BINARY_NAME=music
 #BINARY_NAME=anim
 #BINARY_NAME=render-to-tex
 # #BINARY_NAME=io
 # #BINARY_NAME=clock-speed
 # #BINARY_NAME=time
 # #BINARY_NAME=wlan
-#BINARY_NAME=private
+BINARY_NAME=private
 
 PSPEMU=PPSSPPSDL
-PSPEMUFLAGS= --escape-exit 
+PSPEMUFLAGS=
 
 CARGOFLAGS=--target=mipsel-sony-psp -Zunstable-options -Zbuild-std=core,alloc
 

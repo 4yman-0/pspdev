@@ -817,9 +817,55 @@ macro_rules! instruction {
             "| (0b0111001 << 16)",
         )
     };
+    // Performs element-wise floating point sin(π/2⋅rs) operation
+    (vsin.s $rd:ident $([$($rdp:tt)+])?, $rs:ident $([$($rsp:tt)+])?) => {
+        concat!(
+            $($crate::instruction!(vpfxd $($rdp)*), "\n",)?
+            $($crate::instruction!(vpfxs $($rsp)*), "\n",)?
+            ".word 0b11010000000000000000000000000000",
+            "| (", $crate::register_single!($rd), " << 0)",
+            "| (", $crate::register_single!($rs), " << 8)",
+            "| (0b0010010 << 16)",
+        )
+    };
+
+    (vsin.p $rd:ident $([$($rdp:tt)+])?, $rs:ident $([$($rsp:tt)+])?) => {
+        concat!(
+            $($crate::instruction!(vpfxd $($rdp)*), "\n",)?
+            $($crate::instruction!(vpfxs $($rsp)*), "\n",)?
+            ".word 0b11010000000000000000000000000000",
+            "| 0b0000000010000000",
+            "| (", $crate::register_pair!($rd), " << 0)",
+            "| (", $crate::register_pair!($rs), " << 8)",
+            "| (0b0010010 << 16)",
+        )
+    };
+
+    (vsin.t $rd:ident $([$($rdp:tt)+])?, $rs:ident $([$($rsp:tt)+])?) => {
+        concat!(
+            $($crate::instruction!(vpfxd $($rdp)*), "\n",)?
+            $($crate::instruction!(vpfxs $($rsp)*), "\n",)?
+            ".word 0b11010000000000000000000000000000",
+            "| 0b1000000000000000",
+            "| (", $crate::register_triple!($rd), " << 0)",
+            "| (", $crate::register_triple!($rs), " << 8)",
+            "| (0b0010010 << 16)",
+        )
+    };
+
+    (vsin.q $rd:ident $([$($rdp:tt)+])?, $rs:ident $([$($rsp:tt)+])?) => {
+        concat!(
+            $($crate::instruction!(vpfxd $($rdp)*), "\n",)?
+            $($crate::instruction!(vpfxs $($rsp)*), "\n",)?
+            ".word 0b11010000000000000000000000000000",
+            "| 0b1000000010000000",
+            "| (", $crate::register_quad!($rd), " << 0)",
+            "| (", $crate::register_quad!($rs), " << 8)",
+            "| (0b0010010 << 16)",
+        )
+    };
 
     // Performs element-wise floating point cos(π/2⋅rs) operation
-
     (vcos.s $rd:ident $([$($rdp:tt)+])?, $rs:ident $([$($rsp:tt)+])?) => {
         concat!(
             $($crate::instruction!(vpfxd $($rdp)*), "\n",)?
@@ -868,7 +914,6 @@ macro_rules! instruction {
     };
 
     // Performs a partial cross-product operation
-
     (vcrs.t $rd:ident $([$($rdp:tt)+])?, $rs:ident $([$($rsp:tt)+])?, $rt:ident) => {
         concat!(
             $($crate::instruction!(vpfxd $($rdp)*), "\n",)?
@@ -882,7 +927,6 @@ macro_rules! instruction {
     };
 
     // Performs a full cross-product operation
-
     (vcrsp.t $rd:ident, $rs:ident, $rt:ident) => {
         concat!(
             ".word 0b11110010100000000000000000000000",
@@ -894,7 +938,6 @@ macro_rules! instruction {
     };
 
     // Loads a predefined indexed floating point constant specified by the immediate field
-
     (vcst.s $rd:ident $([$($rdp:tt)+])?, $imm5:ident) => {
         concat!(
             $($crate::instruction!(vpfxd $($rdp)*), "\n",)?
@@ -935,7 +978,6 @@ macro_rules! instruction {
     };
 
     // Performs a 2x2 matrix determinant between two matrix rows
-
     (vdet.p $rd:ident $([$($rdp:tt)+])?, $rs:ident $([$($rsp:tt)+])?, $rt:ident) => {
         concat!(
             $($crate::instruction!(vpfxd $($rdp)*), "\n",)?
@@ -949,7 +991,6 @@ macro_rules! instruction {
     };
 
     // Performs element-wise floating point division
-
     (vdiv.s $rd:ident $([$($rdp:tt)+])?, $rs:ident $([$($rsp:tt)+])?, $rt:ident $([$($rtp:tt)+])?) => {
         concat!(
             $($crate::instruction!(vpfxd $($rdp)*), "\n",)?
@@ -1002,7 +1043,6 @@ macro_rules! instruction {
     };
 
     // Performs vector floating point dot product
-
     (vdot.p $rd:ident $([$($rdp:tt)+])?, $rs:ident $([$($rsp:tt)+])?, $rt:ident $([$($rtp:tt)+])?) => {
         concat!(
             $($crate::instruction!(vpfxd $($rdp)*), "\n",)?
@@ -1042,8 +1082,7 @@ macro_rules! instruction {
         )
     };
 
-    // Performs element-wise floating point exp2(rs) operation
-
+    // Performs element-wise floating point exp2(rs) operatio
     (vexp2.s $rd:ident $([$($rdp:tt)+])?, $rs:ident $([$($rsp:tt)+])?) => {
         concat!(
             $($crate::instruction!(vpfxd $($rdp)*), "\n",)?
@@ -1092,7 +1131,6 @@ macro_rules! instruction {
     };
 
     // Converts the float inputs to float16 (half-float) and packs them in pairs in the output register. The conversion process may naturally result in precision loss.
-
     (vf2h.p $rd:ident $([$($rdp:tt)+])?, $rs:ident) => {
         concat!(
             $($crate::instruction!(vpfxd $($rdp)*), "\n",)?
@@ -1116,7 +1154,6 @@ macro_rules! instruction {
     };
 
     // Performs element-wise float to integer conversion with optional scaling factor, rounding down (that is, towards the previous, equal or smaller, integer value)
-
     (vf2id.s $rd:ident $([$($rdp:tt)+])?, $rs:ident, $scale:expr) => {
         concat!(
             $($crate::instruction!(vpfxd $($rdp)*), "\n",)?
@@ -1161,7 +1198,6 @@ macro_rules! instruction {
     };
 
     // Performs element-wise float to integer conversion with optional scaling factor, rounding to the nearest integer
-
     (vf2in.s $rd:ident $([$($rdp:tt)+])?, $rs:ident, $scale:expr) => {
         concat!(
             $($crate::instruction!(vpfxd $($rdp)*), "\n",)?
@@ -1206,7 +1242,6 @@ macro_rules! instruction {
     };
 
     // Performs element-wise float to integer conversion with optional scaling factor, rounding up (that is, towards the next, equal or greater, integer value)
-
     (vf2iu.s $rd:ident $([$($rdp:tt)+])?, $rs:ident, $scale:expr) => {
         concat!(
             $($crate::instruction!(vpfxd $($rdp)*), "\n",)?
@@ -1251,7 +1286,6 @@ macro_rules! instruction {
     };
 
     // Performs element-wise float to integer conversion with optional scaling factor, truncating the decimal argument (that is, rounding towards zero)
-
     (vf2iz.s $rd:ident $([$($rdp:tt)+])?, $rs:ident, $scale:expr) => {
         concat!(
             $($crate::instruction!(vpfxd $($rdp)*), "\n",)?
@@ -1296,7 +1330,6 @@ macro_rules! instruction {
     };
 
     // Adds all vector elements toghether producing a single result
-
     (vfad.p $rd:ident $([$($rdp:tt)+])?, $rs:ident $([$($rsp:tt)+])?) => {
         concat!(
             $($crate::instruction!(vpfxd $($rdp)*), "\n",)?
@@ -1334,7 +1367,6 @@ macro_rules! instruction {
     };
 
     // Loads a float16 immediate value in a register
-
     (vfim.s $rd:ident $([$($rdp:tt)+])?, $imm16:expr) => {
         concat!(
             $($crate::instruction!(vpfxd $($rdp)*), "\n",)?
@@ -1346,13 +1378,11 @@ macro_rules! instruction {
     };
 
     // Waits until the write buffer has been flushed
-
     (vflush) => {
         ".word 0b11111111111111110000010000001101"
     };
 
     // Converts the input packed float16 into full 32 bit floating point numbers.
-
     (vh2f.s $rd:ident $([$($rdp:tt)+])?, $rs:ident $([$($rsp:tt)+])?) => {
         concat!(
             $($crate::instruction!(vpfxd $($rdp)*), "\n",)?
@@ -1377,7 +1407,6 @@ macro_rules! instruction {
     };
 
     // Performs vector floating point homegeneous dot product
-
     (vhdp.p $rd:ident $([$($rdp:tt)+])?, $rs:ident $([$($rsp:tt)+])?, $rt:ident $([$($rtp:tt)+])?) => {
         concat!(
             $($crate::instruction!(vpfxd $($rdp)*), "\n",)?
@@ -1418,7 +1447,6 @@ macro_rules! instruction {
     };
 
     // Performs a vector-matrix homogeneous transform (matrix-vector product), with a vector result
-
     (vhtfm2.p $rd:ident, $rs:ident, $rt:ident) => {
         concat!(
             ".word 0b11110000100000000000000000000000",
@@ -1430,7 +1458,6 @@ macro_rules! instruction {
     };
 
     // Performs a vector-matrix homogeneous transform (matrix-vector product), with a vector result
-
     (vhtfm3.t $rd:ident, $rs:ident, $rt:ident) => {
         concat!(
             ".word 0b11110001000000000000000000000000",
@@ -1456,7 +1483,6 @@ macro_rules! instruction {
     };
 
     // Converts the four integer inputs to char and packs them as a single element word. The conversion process takes the 8 most significant bits of each integer.
-
     (vi2c.q $rd:ident $([$($rdp:tt)+])?, $rs:ident $([$($rsp:tt)+])?) => {
         concat!(
             $($crate::instruction!(vpfxd $($rdp)*), "\n",)?
@@ -1470,7 +1496,6 @@ macro_rules! instruction {
     };
 
     // Performs element-wise integer to float conversion with optional scaling factor. The integer is divided by 2^scale after the conversion.
-
     (vi2f.s $rd:ident $([$($rdp:tt)+])?, $rs:ident $([$($rsp:tt)+])?, $scale:expr) => {
         concat!(
             $($crate::instruction!(vpfxd $($rdp)*), "\n",)?
@@ -1519,7 +1544,6 @@ macro_rules! instruction {
     };
 
     // Converts the integer inputs to short and packs them in pairs in the output register. The conversion process takes the 16 most significant bits of each integer.
-
     (vi2s.p $rd:ident $([$($rdp:tt)+])?, $rs:ident $([$($rsp:tt)+])?) => {
         concat!(
             $($crate::instruction!(vpfxd $($rdp)*), "\n",)?
@@ -1545,7 +1569,6 @@ macro_rules! instruction {
     };
 
     // Converts the four integer inputs to char and packs them as a single element word. The conversion process takes the 8 most significant bits of each integer and clamps any negative input values to zero.
-
     (vi2uc.q $rd:ident $([$($rdp:tt)+])?, $rs:ident $([$($rsp:tt)+])?) => {
         concat!(
             $($crate::instruction!(vpfxd $($rdp)*), "\n",)?
@@ -1559,7 +1582,6 @@ macro_rules! instruction {
     };
 
     // Converts the integer inputs to short and packs them in pairs in the output register. The conversion process takes the 16 most significant bits of each integer and clamps any negative input values to zero.
-
     (vi2us.p $rd:ident $([$($rdp:tt)+])?, $rs:ident $([$($rsp:tt)+])?) => {
         concat!(
             $($crate::instruction!(vpfxd $($rdp)*), "\n",)?
@@ -1585,7 +1607,6 @@ macro_rules! instruction {
     };
 
     // Initializes destination register as an identity matrix row (all zeros but one). The behaviour depends on the destination register number.
-
     (vidt.p $rd:ident $([$($rdp:tt)+])?) => {
         concat!(
             $($crate::instruction!(vpfxd $($rdp)*), "\n",)?
@@ -1607,7 +1628,6 @@ macro_rules! instruction {
     };
 
     // Loads a signed 16 bit immediate value (converted to floating point) in a register
-
     (viim.s $rd:ident $([$($rdp:tt)+])?, $imm16:expr) => {
         concat!(
             $($crate::instruction!(vpfxd $($rdp)*), "\n",)?
@@ -1618,7 +1638,6 @@ macro_rules! instruction {
     };
 
     // Performs element-wise logB() calculation
-
     (vlgb.s $rd:ident $([$($rdp:tt)+])?, $rs:ident $([$($rsp:tt)+])?) => {
         concat!(
             $($crate::instruction!(vpfxd $($rdp)*), "\n",)?
@@ -1631,7 +1650,6 @@ macro_rules! instruction {
     };
 
     // Performs element-wise floating point log2(rs) operation
-
     (vlog2.s $rd:ident $([$($rdp:tt)+])?, $rs:ident $([$($rsp:tt)+])?) => {
         concat!(
             $($crate::instruction!(vpfxd $($rdp)*), "\n",)?
@@ -2168,7 +2186,6 @@ macro_rules! instruction {
     };
 
     // Performs element-wise floating point -sin(π/2⋅rs) operation
-
     (vnsin.s $rd:ident $([$($rdp:tt)+])?, $rs:ident $([$($rsp:tt)+])?) => {
         concat!(
             $($crate::instruction!(vpfxd $($rdp)*), "\n",)?
@@ -2266,7 +2283,6 @@ macro_rules! instruction {
     };
 
     // Writes ones (1.0f) into the destination register
-
     (vone.s $rd:ident $([$($rdp:tt)+])?) => {
         concat!(
             $($crate::instruction!(vpfxd $($rdp)*), "\n",)?
@@ -2368,7 +2384,6 @@ macro_rules! instruction {
     };
 
     // Performs element-wise floating point 1/exp2(rs) operation (equivalent to exp2(-rs))
-
     (vrexp2.s $rd:ident $([$($rdp:tt)+])?, $rs:ident $([$($rsp:tt)+])?) => {
         concat!(
             $($crate::instruction!(vpfxd $($rdp)*), "\n",)?
@@ -2417,7 +2432,6 @@ macro_rules! instruction {
     };
 
     // Writes pseudorandom numbers to the destination elements so that each element (x) can assert 1.0f <= x < 2.0f
-
     (vrndf1.s $rd:ident $([$($rdp:tt)+])?) => {
         concat!(
             $($crate::instruction!(vpfxd $($rdp)*), "\n",)?
@@ -2458,7 +2472,6 @@ macro_rules! instruction {
     };
 
     // Writes pseudorandom numbers to the destination elements so that each element (x) can assert 2.0f <= x < 4.0f
-
     (vrndf2.s $rd:ident $([$($rdp:tt)+])?) => {
         concat!(
             $($crate::instruction!(vpfxd $($rdp)*), "\n",)?
@@ -2499,7 +2512,6 @@ macro_rules! instruction {
     };
 
     // Writes pseudorandom 32 bit numbers to the destination elements (full 32bit range)
-
     (vrndi.s $rd:ident $([$($rdp:tt)+])?) => {
         concat!(
             $($crate::instruction!(vpfxd $($rdp)*), "\n",)?
@@ -2771,7 +2783,6 @@ macro_rules! instruction {
     };
 
     // Scales a vector (element-wise) by an scalar factor
-
     (vscl.p $rd:ident $([$($rdp:tt)+])?, $rs:ident $([$($rsp:tt)+])?, $rt:ident) => {
         concat!(
             $($crate::instruction!(vpfxd $($rdp)*), "\n",)?
@@ -2963,55 +2974,6 @@ macro_rules! instruction {
         )
     };
 
-    // Performs element-wise floating point sin(π/2⋅rs) operation
-
-    (vsin.s $rd:ident $([$($rdp:tt)+])?, $rs:ident $([$($rsp:tt)+])?) => {
-        concat!(
-            $($crate::instruction!(vpfxd $($rdp)*), "\n",)?
-            $($crate::instruction!(vpfxs $($rsp)*), "\n",)?
-            ".word 0b11010000000000000000000000000000",
-            "| (", $crate::register_single!($rd), " << 0)",
-            "| (", $crate::register_single!($rs), " << 8)",
-            "| (0b0010010 << 16)",
-        )
-    };
-
-    (vsin.p $rd:ident $([$($rdp:tt)+])?, $rs:ident $([$($rsp:tt)+])?) => {
-        concat!(
-            $($crate::instruction!(vpfxd $($rdp)*), "\n",)?
-            $($crate::instruction!(vpfxs $($rsp)*), "\n",)?
-            ".word 0b11010000000000000000000000000000",
-            "| 0b0000000010000000",
-            "| (", $crate::register_pair!($rd), " << 0)",
-            "| (", $crate::register_pair!($rs), " << 8)",
-            "| (0b0010010 << 16)",
-        )
-    };
-
-    (vsin.t $rd:ident $([$($rdp:tt)+])?, $rs:ident $([$($rsp:tt)+])?) => {
-        concat!(
-            $($crate::instruction!(vpfxd $($rdp)*), "\n",)?
-            $($crate::instruction!(vpfxs $($rsp)*), "\n",)?
-            ".word 0b11010000000000000000000000000000",
-            "| 0b1000000000000000",
-            "| (", $crate::register_triple!($rd), " << 0)",
-            "| (", $crate::register_triple!($rs), " << 8)",
-            "| (0b0010010 << 16)",
-        )
-    };
-
-    (vsin.q $rd:ident $([$($rdp:tt)+])?, $rs:ident $([$($rsp:tt)+])?) => {
-        concat!(
-            $($crate::instruction!(vpfxd $($rdp)*), "\n",)?
-            $($crate::instruction!(vpfxs $($rsp)*), "\n",)?
-            ".word 0b11010000000000000000000000000000",
-            "| 0b1000000010000000",
-            "| (", $crate::register_quad!($rd), " << 0)",
-            "| (", $crate::register_quad!($rs), " << 8)",
-            "| (0b0010010 << 16)",
-        )
-    };
-
     // Performs element-wise floating point less-than comparison. The result will be 1.0 if vs less than vt, otherwise will be zero.
 
     (vslt.s $rd:ident $([$($rdp:tt)+])?, $rs:ident $([$($rsp:tt)+])?, $rt:ident $([$($rtp:tt)+])?) => {
@@ -3136,7 +3098,6 @@ macro_rules! instruction {
     };
 
     // Performs a min() sorting step between elements pairs 0-1 and 2-3, shuffling them depending on their values.
-
     (vsrt1.q $rd:ident $([$($rdp:tt)+])?, $rs:ident $([$($rsp:tt)+])?) => {
         concat!(
             $($crate::instruction!(vpfxd $($rdp)*), "\n",)?
@@ -3150,7 +3111,6 @@ macro_rules! instruction {
     };
 
     // Performs a min() sorting step between elements pairs 3-0 and 1-2, shuffling them depending on their values.
-
     (vsrt2.q $rd:ident $([$($rdp:tt)+])?, $rs:ident $([$($rsp:tt)+])?) => {
         concat!(
             $($crate::instruction!(vpfxd $($rdp)*), "\n",)?
@@ -3164,7 +3124,6 @@ macro_rules! instruction {
     };
 
     // Performs a max() sorting step between elements pairs 0-1 and 2-3, shuffling them depending on their values.
-
     (vsrt3.q $rd:ident $([$($rdp:tt)+])?, $rs:ident $([$($rsp:tt)+])?) => {
         concat!(
             $($crate::instruction!(vpfxd $($rdp)*), "\n",)?
@@ -3178,7 +3137,6 @@ macro_rules! instruction {
     };
 
     // Performs a max() sorting step between elements pairs 3-0 and 1-2, shuffling them depending on their values.
-
     (vsrt4.q $rd:ident $([$($rdp:tt)+])?, $rs:ident $([$($rsp:tt)+])?) => {
         concat!(
             $($crate::instruction!(vpfxd $($rdp)*), "\n",)?
@@ -3192,7 +3150,6 @@ macro_rules! instruction {
     };
 
     // Performs element-wise floating point subtraction
-
     (vsub.s $rd:ident $([$($rdp:tt)+])?, $rs:ident $([$($rsp:tt)+])?, $rt:ident $([$($rtp:tt)+])?) => {
         concat!(
             $($crate::instruction!(vpfxd $($rdp)*), "\n",)?

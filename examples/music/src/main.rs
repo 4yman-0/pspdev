@@ -11,22 +11,21 @@ use psp_apis::atrac::{
     //AtracDecodeInfo,
 };
 use psp_apis::audio::{
-	align_sample_count,
-    AudioFormat,
     //AudioOutputFrequency,
-    AudioChannel,
+    Audio2Channel as AudioChannel,
+    //AudioFormat,
     Sample,
     Volume,
+    align_sample_count,
 };
-use psp_apis::display::wait_vblank_start;
 use psp_apis::fs::{
     Directory,
     File,
     //self,
     //Path,
 };
-use psp_apis::thread;
-use psp_sys::sys;
+use psp_apis::{kernel, thread};
+use psp_sys::{dprint, sys};
 
 psp_sys::module!("music", 0, 1);
 
@@ -34,10 +33,14 @@ fn play_atrac(file_path: alloc::ffi::CString) -> thread::Thread {
     thread::spawn(c"playback", move || {
         loop {
             let volume = Volume::from_mono_f32(0.4);
-            let mut channel = AudioChannel::reserve_next(
-            	512,
-				AudioFormat::Stereo,
-            ).unwrap();
+            dprint!("Reserving channel...");
+            let mut channel = AudioChannel::reserve(
+                256,
+                //AudioOutputFrequency::Khz44_1,
+                //2,
+            )
+            .unwrap();
+            dprint!("Reserved channel...");
             let mut audio_file =
                 File::open(&file_path, sys::IoOpenFlags::RD_ONLY).unwrap();
             let _ = audio_file.seek_i32(0, sys::IoWhence::Set);
@@ -45,34 +48,39 @@ fn play_atrac(file_path: alloc::ffi::CString) -> thread::Thread {
                 unsafe { Box::<[u8]>::new_uninit_slice(1024).assume_init() };
             audio_file.read(&mut audio_buffer).unwrap();
             // FIXME: works in PPSSPP but not on PSP-3000
+            dprint!("Reserving ATRAC decoder...");
             let mut audio_handle =
                 unsafe { AtracHandle::new(&mut audio_buffer).unwrap() };
+            dprint!("Reserved ATRAC decoder...");
             let _ = audio_handle.set_loops(None);
 
-            let mut stream = unsafe { thread::spawn_unsafe(c"stream", || {
-                loop {
-                    let remaining = audio_handle.remaining_frames().unwrap();
-                    if remaining.is_none() {
-                        // all data is available
-                        break;
-                    } else if remaining.is_some_and(|r| r < 20)
-                        && let Some((data_add, read_from)) =
-                            audio_handle.start_data_add().unwrap()
-                    {
-                        let data_add_len = {
-                            let _ = audio_file
-                                .seek(read_from as i64, sys::IoWhence::Set);
-                            audio_file.read(data_add).unwrap();
-                            data_add.len()
-                        };
-                        audio_handle.notify_data_add(data_add_len).unwrap();
+            let mut stream = unsafe {
+                thread::spawn_unsafe(c"stream", || {
+                    loop {
+                        let remaining =
+                            audio_handle.remaining_frames().unwrap();
+                        if remaining.is_none() {
+                            // all data is available
+                            break;
+                        } else if remaining.is_some_and(|r| r < 20)
+                            && let Some((data_add, read_from)) =
+                                audio_handle.start_data_add().unwrap()
+                        {
+                            let data_add_len = {
+                                let _ = audio_file
+                                    .seek(read_from as i64, sys::IoWhence::Set);
+                                audio_file.read(data_add).unwrap();
+                                data_add.len()
+                            };
+                            audio_handle.notify_data_add(data_add_len).unwrap();
+                        }
+                        // The PSP has cooperative multithreading!?
+                        thread::sleep(Duration::from_millis(3)).unwrap();
                     }
-                    // The PSP has cooperative multithreading!?
-                    thread::sleep(Duration::from_millis(3)).unwrap();
-                }
-                Ok(())
-            })
-            .unwrap() };
+                    Ok(())
+                })
+                .unwrap()
+            };
             let max_sample_count = audio_handle.max_sample_count().unwrap();
             let mut sample_buffer =
                 Box::<[Sample]>::new_uninit_slice(max_sample_count);
@@ -90,7 +98,9 @@ fn play_atrac(file_path: alloc::ffi::CString) -> thread::Thread {
                     "Max sample count exceeded"
                 );
                 let sample_count = info.sample_count.min(sample_buffer.len());
-                channel.set_sample_count(align_sample_count(sample_count as u32)).unwrap();
+                channel
+                    .set_sample_count(align_sample_count(sample_count as u32))
+                    .unwrap();
                 channel
                     .output_blocking(&volume, unsafe {
                         sample_buffer.assume_init_ref()
@@ -108,10 +118,20 @@ fn play_atrac(file_path: alloc::ffi::CString) -> thread::Thread {
     .unwrap()
 }
 
+const MODULES: &[sys::Module] =
+    &[sys::Module::AvCodec, sys::Module::AvAtrac3Plus];
+
 fn psp_main() {
+    psp_sys::enable_home_button();
     let emulated = Directory::open(c"ms0:/PSP/GAME/PSPDEV_EMU").is_ok();
 
-	AudioChannel::init().unwrap();
+    //AudioChannel::init().unwrap();
+    dprint!("loading modules...");
+    for module in MODULES {
+        kernel::utility_load_module(*module).unwrap();
+    }
+    dprint!("loaded modules...");
+
     let /*mut*/ playback = play_atrac(
         (if emulated {
             c"ms0:/PSP/GAME/PSPDEV_EMU/music.at3"
@@ -121,9 +141,16 @@ fn psp_main() {
     );
 
     loop {
+        psp_apis::display::wait_vblank();
+
         if let Err(_) | Ok(true) = playback.has_exited() {
             break;
         }
-        wait_vblank_start();
     }
+
+    dprint!("unloading modules...");
+    for module in MODULES {
+        kernel::utility_unload_module(*module).unwrap();
+    }
+    dprint!("unloaded modules...");
 }

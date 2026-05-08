@@ -114,7 +114,6 @@ name = "psp-sys"
 version = "0.3.12"
 dependencies = [
  "bitflags",
- "libm",
  "paste",
  "unstringify",
 ]

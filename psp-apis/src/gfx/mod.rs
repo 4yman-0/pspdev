@@ -15,11 +15,9 @@ pub mod vram_alloc;
 
 use gl::{Gl, I8Mat4, Mat3By4};
 use texture::Texture;
-use vram_alloc::VramAllocator;
 
 pub struct Gfx {
     gl: Gl,
-    vram_allocator: VramAllocator,
     frame_buffer: Texture,
     depth_buffer: Option<Texture>,
     double_buffer: Option<(Texture, bool)>,
@@ -49,13 +47,11 @@ impl Gfx {
     #[must_use]
     pub fn depth_test(mut self) -> Self {
         let depth_buffer = Texture::allocate(
-            self.vram_allocator_mut(),
             Self::BUFFER_WIDTH,
             Self::WIDTH,
             sys::TexturePixelFormat::Psm4444,
             false,
-        )
-        .unwrap();
+        );
         self.depth_buffer = Some(depth_buffer);
         self.gl.depth_range(u16::MAX, 0, 0);
         self.gl.depth_test_function(sys::DepthFunc::GreaterOrEqual);
@@ -70,14 +66,8 @@ impl Gfx {
     #[must_use]
     pub fn double_buffering(mut self) -> Self {
         let format = self.frame_buffer.format();
-        let double_buffer = Texture::allocate(
-            self.vram_allocator_mut(),
-            Self::BUFFER_WIDTH,
-            Self::WIDTH,
-            format,
-            false,
-        )
-        .unwrap();
+        let double_buffer =
+            Texture::allocate(Self::BUFFER_WIDTH, Self::WIDTH, format, false);
         self.double_buffer = Some((double_buffer, false));
         self
     }
@@ -112,18 +102,16 @@ impl Gfx {
     }
 
     /// It is strongly recommended to only call this once
-    pub fn init(frame_buffer_format: sys::TexturePixelFormat)
-     -> gl::GlResult<Self> {
+    pub fn init(
+        frame_buffer_format: sys::TexturePixelFormat,
+    ) -> gl::GlResult<Self> {
         use gl::MatrixMode;
-        let mut vram_allocator = VramAllocator::default();
         let mut frame_buffer = Texture::allocate(
-            &mut vram_allocator,
             Self::BUFFER_WIDTH,
             Self::HEIGHT,
             frame_buffer_format,
             false,
-        )
-        .unwrap();
+        );
         unsafe {
             sys::sceGuInit();
         };
@@ -162,7 +150,6 @@ impl Gfx {
         psp_sys::dprint!("Gfx initialized!");
         Ok(Self {
             gl,
-            vram_allocator,
             frame_buffer,
             depth_buffer: None,
             double_buffer: None,
@@ -216,15 +203,6 @@ impl Gfx {
     #[must_use]
     pub fn gl_mut(&mut self) -> &mut Gl {
         &mut self.gl
-    }
-
-    #[must_use]
-    pub const fn vram_allocator(&self) -> &VramAllocator {
-        &self.vram_allocator
-    }
-    #[must_use]
-    pub fn vram_allocator_mut(&mut self) -> &mut VramAllocator {
-        &mut self.vram_allocator
     }
 
     pub fn start_frame(&mut self) -> Frame<'_> {

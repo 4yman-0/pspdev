@@ -24,8 +24,8 @@ pub mod debug;
 #[macro_use]
 mod vfpu;
 mod eabi;
-pub mod math;
 pub mod sys;
+pub mod vfpu_context;
 
 mod alloc_impl;
 

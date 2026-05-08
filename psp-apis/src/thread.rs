@@ -251,6 +251,8 @@ impl Thread {
     }
 }*/
 
+/// # Safety
+/// This function does not enforce lifetime bounds
 pub unsafe fn spawn_unsafe<F>(
     name: &ffi::CStr,
     entry: F,
@@ -306,4 +308,4 @@ where
     unsafe { spawn_unsafe(name, entry) }
 }
 
-// TODO: do we need to implement sce* sync primitives?
+// TODO: Do we need to implement sce* sync primitives?

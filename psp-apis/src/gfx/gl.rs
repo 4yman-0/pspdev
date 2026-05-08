@@ -53,7 +53,7 @@ impl From<NativeError> for GlError {
     }
 }
 
-use glam::{I8Vec4, Mat4, Vec3, Vec4};
+use glam::{I8Vec4, Mat3, Mat4, Vec3, Vec4};
 
 #[derive(Clone)]
 pub struct Mat3By4 {
@@ -102,47 +102,76 @@ impl Mat3By4 {
     }
     #[inline(always)]
     #[must_use]
-	pub const fn from_cols(
-		x_axis: Vec3,
-		y_axis: Vec3,
-		z_axis: Vec3,
-		w_axis: Vec3,
-	) -> Self {
-		Self {
-			x_axis,
-			y_axis,
-			z_axis,
-			w_axis,
-		}
-	}
+    pub const fn from_cols(
+        x_axis: Vec3,
+        y_axis: Vec3,
+        z_axis: Vec3,
+        w_axis: Vec3,
+    ) -> Self {
+        Self {
+            x_axis,
+            y_axis,
+            z_axis,
+            w_axis,
+        }
+    }
     #[inline(always)]
     #[must_use]
     pub const fn from_scale(scale: Vec3) -> Self {
-    	Self::new(
-    		scale.x, 0.0, 0.0,
-    		0.0, scale.y, 0.0,
-    		0.0, 0.0, scale.z,
-    		0.0, 0.0, 0.0,
-    	)
+        Self::new(
+            scale.x, 0.0, 0.0, 0.0, scale.y, 0.0, 0.0, 0.0, scale.z, 0.0, 0.0,
+            0.0,
+        )
+    }
+    #[inline(always)]
+    #[must_use]
+    pub const fn from_translation(translation: Vec3) -> Self {
+        Self::from_cols(Vec3::X, Vec3::Y, Vec3::Z, translation)
+    }
+    #[inline(always)]
+    #[must_use]
+    pub const fn from_scale_translation(
+        scale: Vec3,
+        translation: Vec3,
+    ) -> Self {
+        Self::new(
+            scale.x,
+            0.0,
+            0.0,
+            0.0,
+            scale.y,
+            0.0,
+            0.0,
+            0.0,
+            scale.z,
+            translation.x,
+            translation.y,
+            translation.z,
+        )
     }
     #[inline(always)]
     #[must_use]
     const fn v4_to_v3(v: Vec4) -> Vec3 {
-    	Vec3 {
-    		x: v.x,
-    		y: v.y,
-    		z: v.z,
-    	}
+        Vec3 {
+            x: v.x,
+            y: v.y,
+            z: v.z,
+        }
     }
     #[inline(always)]
     #[must_use]
     pub const fn from_mat4(m: Mat4) -> Self {
-    	Self::from_cols(
-			Self::v4_to_v3(m.x_axis),
-			Self::v4_to_v3(m.y_axis),
-			Self::v4_to_v3(m.z_axis),
-			Self::v4_to_v3(m.w_axis),
-    	)
+        Self::from_cols(
+            Self::v4_to_v3(m.x_axis),
+            Self::v4_to_v3(m.y_axis),
+            Self::v4_to_v3(m.z_axis),
+            Self::v4_to_v3(m.w_axis),
+        )
+    }
+    #[inline(always)]
+    #[must_use]
+    pub const fn from_mat3_vec3(m: Mat3, v: Vec3) -> Self {
+        Self::from_cols(m.x_axis, m.y_axis, m.z_axis, v)
     }
 }
 
@@ -236,6 +265,7 @@ impl ListHandle {
         };
     }
     pub fn stall(&mut self) {
+        crate::kernel::data_cache_writeback_invalidate(&self.list);
         unsafe {
             sys::sceGuCommandStall();
         };
@@ -620,7 +650,6 @@ impl Gl {
         unsafe {
             sys::sceGuFinish();
         };
-        crate::kernel::data_cache_writeback_invalidate(&self.list);
         Ok(())
     }
     /// ## Safety

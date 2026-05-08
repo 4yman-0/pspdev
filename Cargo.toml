@@ -16,3 +16,6 @@ debug-assertions = true
 [profile.release]
 panic = "abort"
 strip = true
+
+# [patch.crates-io]
+# libm = { path = "libm" }

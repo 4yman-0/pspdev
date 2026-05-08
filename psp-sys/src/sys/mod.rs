@@ -16,7 +16,6 @@
 //!     - `sceIo`: File I/O API
 //!     - `sceAudio`: Audio API
 //!     - `sceAtrac`: Sony ATRAC3 Codec API
-//!     - `sceJpeg`: JPEG decoding API
 //!     - `sceUmd`: UMD Drive API
 //!     - `sceMpeg`: MPEG codec API
 //!     - `sceHprm`: Headphone Remote API (headphone accessory with controls)
@@ -26,6 +25,8 @@
 //!     - `sceRegistry`: PSP OS Registry API
 //!     - `sceOpenPSID`: Console identification API (unique to every console)
 //!     - `sceUtility`: Various utilities such as msg dialogs and savedata
+
+// //!     - `sceJpeg`: JPEG decoding API
 
 #![allow(clippy::missing_safety_doc)]
 #![allow(unsafe_op_in_unsafe_fn)]
@@ -68,8 +69,8 @@ pub use audio::*;
 mod atrac;
 pub use atrac::*;
 
-mod jpeg;
-pub use jpeg::*;
+//mod jpeg;
+//pub use jpeg::*;
 
 mod umd;
 pub use umd::*;
@@ -113,8 +114,6 @@ pub use psmf::*;
 
 // TODO: Add kernel module support to this crate.
 // pub mod nand;
-
-pub mod vfpu_context;
 
 use core::ffi::c_void;
 
