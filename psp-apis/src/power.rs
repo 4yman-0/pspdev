@@ -1,4 +1,4 @@
-//! NOT TESTED
+//! Only the clock speeds are tested
 
 use crate::error::{NativeResult, native_error, native_result};
 use psp_sys::sys;
@@ -105,7 +105,7 @@ pub fn scePowerGetBusClockFrequency() -> i32;
 /// # Return Value
 ///
 /// Frequency as an integer
-pub fn bus_clock_frequency() -> usize {
+pub fn bus_frequency() -> usize {
     (unsafe { sys::scePowerGetBusClockFrequencyInt() }) as usize
 }
 

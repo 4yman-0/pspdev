@@ -1,4 +1,4 @@
-//! WIP
+//! WIP, not tested
 
 //use crate::audio::Sample;
 use crate::error::{

@@ -49,6 +49,7 @@ pub fn days_in_month(year: i32, month: i32) -> u32 {
 numeric_enum_macro::numeric_enum! {
     // are there any misspells?
     #[repr(u8)]
+	#[derive(Clone, Copy, Debug)]
     pub enum DayOfWeek {
         Monday = 0,
         Tuesday = 1,
