@@ -7,8 +7,6 @@ extern crate alloc;
 
 use psp_apis::fs::{
     Directory,
-    //self,
-    //Path,
 };
 use psp_apis::gfx::{
     Gfx,
@@ -17,7 +15,6 @@ use psp_apis::gfx::{
     vertex::{VertexSize, const_vt_size},
 };
 
-//use alloc::{boxed::Box /*, vec::Vec*/};
 use glam::{Mat4, Vec3};
 use psp_sys::{dprint, enable_home_button, sys};
 
@@ -77,35 +74,18 @@ fn psp_main() {
         .build()
         .unwrap();
     warn_unwrap(gfx.start_frame_with(|frame| {
-        // Initial setup pass
         let gl = frame.gl_mut();
-        gl.patch_division(2, 2);
-        gl.blend_function(
-            sys::BlendOp::Add,
-            sys::BlendFactor::SrcAlpha,
-            sys::BlendFactor::OneMinusSrcAlpha,
-            u8::MAX as _,
-            u8::MAX as _,
-        );
-        gl.set_state(sys::GuState::Blend, true);
 
-        //gl.depth_test_function(sys::DepthFunc::);
         let mut perspective = Mat4::perspective_rh_gl(
             deg_to_rad(90.0), //90º
             16.0 / 9.0,
-            0.8,
+            1.0,
             // it has to be negative otherwise it wont work
-            -0.8,
+            -1.0,
         );
-        perspective.w_axis.z *= 0.9;
         gl.overwrite_projection_matrix(perspective);
 
-        gl.set_matrix(MatrixMode::Texture, &Mat3By4::ZERO);
-
         gl.shading_model(sys::ShadingModel::Flat);
-
-        gl.set_state(sys::GuState::Lighting, true);
-        gl.light_mode(sys::LightMode::SeparateSpecularColor);
         Ok(())
     }));
     let emulated = Directory::open(c"ms0:/PSP/GAME/PSPDEV_EMU").is_ok();
@@ -131,8 +111,8 @@ fn psp_main() {
             )?;
 
             {
-                // Gran Turismo jittering
-                const JITTER: f32 = 1.0 / 272.0;
+                // Mild Gran Turismo jittering
+                const JITTER: f32 = 0.5 / 272.0;
                 let mut view = Mat3By4::IDENTITY;
                 if frame_clock.edge_clock(2) {
                     view.w_axis.x += JITTER;
@@ -152,7 +132,7 @@ fn psp_main() {
             gl.set_bone_matrix(
                 1,
                 &Mat3By4::from_translation(Vec3::new(
-                    f32::from(frame_clock.continous_clock(30)) * 0.2,
+                    frame_clock.sawtooth_clock(60) as f32 / 60.0,
                     0.0,
                     0.0,
                 )),
@@ -168,7 +148,6 @@ fn psp_main() {
             gl.draw_primitives(v, MODEL_PRIMITIVE);
             Ok(())
         }));
-
-        psp_apis::display::wait_vblank();
+        psp_apis::display::wait_vblank_start();
     }
 }

@@ -1,7 +1,10 @@
 use aligned_box::AlignedBox;
-use psp_apis::fs::File;
+use psp_apis::fs::{
+    File,
+};
 use psp_apis::gfx::{
-    color::Color32,
+    //color::Color32,
+    //gl::{GlResult, Mat3By4, MatrixMode},
     index::IndexItem,
     texture::{Texture, texture_size},
     vertex::{Vertex, VertexSize},
@@ -15,11 +18,11 @@ unsafe fn read_u32(file: &mut File) -> u32 {
     u32::from_le_bytes(buf)
 }
 
-unsafe fn read_u16(file: &mut File) -> u16 {
+/*unsafe fn read_u16(file: &mut File) -> u16 {
     let mut buf: [u8; 2] = [0u8; 2];
     file.read_all(&mut buf).unwrap();
     u16::from_le_bytes(buf)
-}
+}*/
 
 pub fn load_texture(file_name: &core::ffi::CStr) -> Texture {
     let mut file = File::open(file_name, sys::IoOpenFlags::RD_ONLY).unwrap();
@@ -115,7 +118,7 @@ pub fn load_model(file_name: &core::ffi::CStr) -> Model {
     }
 }
 
-pub struct Shading {
+/*pub struct Shading {
     pub light_components: sys::LightComponent,
     pub real_ambient: Option<Color32>,
     pub ambient: Option<Color32>,
@@ -185,4 +188,4 @@ pub fn load_shading(file_name: &core::ffi::CStr) -> Shading {
         specular: use_specular.then_some(specular),
         specular_coeff: use_specular_coeff.then_some(specular_coeff),
     }
-}
+}*/

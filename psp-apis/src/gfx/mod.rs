@@ -28,7 +28,7 @@ impl Gfx {
     pub const HEIGHT: u16 = 272;
     pub const BUFFER_WIDTH: u16 = 512;
     pub fn init_default() -> gl::GlResult<Self> {
-        Self::init(sys::TexturePixelFormat::Psm8888)?
+        Self::init(sys::TexturePixelFormat::Psm5551)?
             .depth_test()
             .double_buffering()
             .culling()
@@ -125,8 +125,8 @@ impl Gfx {
         };
         gl.draw_region(0, 0, Self::WIDTH, Self::HEIGHT)?;
         gl.offset(
-            2048 - (Self::WIDTH as usize / 2),
-            2048 - (Self::HEIGHT as usize / 2),
+            2048 - (Self::WIDTH as u32 / 2),
+            2048 - (Self::HEIGHT as u32 / 2),
         );
         gl.viewport(2048.0, 2048.0, Self::WIDTH.into(), Self::HEIGHT.into());
         gl.overwrite_projection_matrix(Mat4::IDENTITY);

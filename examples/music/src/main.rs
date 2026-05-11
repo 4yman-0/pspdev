@@ -21,8 +21,6 @@ use psp_apis::audio::{
 use psp_apis::fs::{
     Directory,
     File,
-    //self,
-    //Path,
 };
 use psp_apis::{kernel, thread};
 use psp_sys::{dprint, sys};
@@ -141,11 +139,10 @@ fn psp_main() {
     );
 
     loop {
-        psp_apis::display::wait_vblank();
-
         if let Err(_) | Ok(true) = playback.has_exited() {
             break;
         }
+        psp_apis::display::wait_vblank_start();
     }
 
     dprint!("unloading modules...");

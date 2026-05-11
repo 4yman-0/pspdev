@@ -1,7 +1,3 @@
-// ## Convention
-// - GL uses pointers from system memory to refer to VRAM.
-// - GL uses `usize` whenever possible.
-
 use super::{
     color::Color32,
     index::IndexItem,
@@ -189,6 +185,7 @@ impl AsRef<[f32; 12]> for Mat3By4 {
         unsafe { &*(&raw const *self).cast() }
     }
 }
+
 impl AsMut<[f32; 12]> for Mat3By4 {
     #[inline]
     fn as_mut(&mut self) -> &mut [f32; 12] {
@@ -208,8 +205,8 @@ pub enum MatrixMode {
 /// - the most significant 8 bits
 #[inline]
 #[must_use]
-const fn split_address(ptr: usize) -> (usize, u8) {
-    (ptr & 0xffffff, (ptr >> 24) as u8)
+const fn split_address(ptr: usize) -> (u32, u8) {
+    (ptr as u32 & 0xffffff, (ptr >> 24) as u8)
 }
 
 fn into_bytes<T>(slice: &[T]) -> &[u8] {
@@ -224,7 +221,7 @@ fn into_bytes<T>(slice: &[T]) -> &[u8] {
 pub struct ListHandle {
     // `list` should not re-allocate while being written to or
     // its address will change silently during rendering
-    list: Box<[MaybeUninit<usize>]>,
+    list: Box<[MaybeUninit<u32>]>,
 }
 
 impl core::fmt::Debug for ListHandle {
@@ -233,23 +230,24 @@ impl core::fmt::Debug for ListHandle {
     }
 }
 
-const GE_LIST_SIZE: usize = 0x4000;
-
 impl ListHandle {
+	const GE_LIST_SIZE: usize = 0x4000;
+
     #[must_use]
     pub fn new() -> Self {
         let list = unsafe {
             let raw = alloc::alloc::alloc(
                 core::alloc::Layout::from_size_align(
-                    GE_LIST_SIZE * size_of::<usize>(),
+                    Self::GE_LIST_SIZE * size_of::<u32>(),
                     16,
                 )
                 .unwrap(),
             );
-            Box::<[MaybeUninit<usize>]>::from_raw({
+            let raw = crate::ptr::make_uncached_mut(raw);
+            Box::<[MaybeUninit<u32>]>::from_raw({
                 &raw mut *core::slice::from_raw_parts_mut(
                     raw.cast(),
-                    GE_LIST_SIZE,
+                    Self::GE_LIST_SIZE,
                 )
             })
         };
@@ -296,23 +294,23 @@ impl ListHandle {
     }
     #[must_use]
     #[inline]
-    pub fn list_mut(&mut self) -> &mut [usize] {
+    pub fn list_mut(&mut self) -> &mut [u32] {
         unsafe { self.list.assume_init_mut() }
     }
     #[must_use]
     #[inline]
-    pub fn list(&mut self) -> &[usize] {
+    pub fn list(&mut self) -> &[u32] {
         unsafe { self.list.assume_init_ref() }
     }
     #[inline]
-    pub fn send(&mut self, id: GeCmd, data: usize) {
+    pub fn send(&mut self, id: GeCmd, data: u32) {
         unsafe {
-            sys::sceGuSendCommandi(id, data.cast_signed() as i32);
+            sys::sceGuSendCommandi(id, data.cast_signed());
         };
     }
     #[inline]
     pub fn send_parts(&mut self, id: GeCmd, data1: u8, data2: u16) {
-        self.send(id, ((data1 as usize) << 16) | data2 as usize);
+        self.send(id, ((data1 as u32) << 16) | data2 as u32);
     }
     #[inline]
     pub fn send_float(&mut self, id: GeCmd, data: f32) {
@@ -500,7 +498,7 @@ impl Gl {
                 .byte_offset_from_unsigned(sys::sceGeEdramGetAddr())
         });
         self.list
-            .send(GeCmd::FramebufPixFormat, frame.format() as usize);
+            .send(GeCmd::FramebufPixFormat, frame.format() as u32);
         self.list.send(GeCmd::FrameBufPtr, frame1);
         self.list
             .send_parts(GeCmd::FrameBufWidth, frame2, frame.width());
@@ -570,9 +568,9 @@ impl Gl {
         }
         self.list.send(
             GeCmd::Region1,
-            ((start_y as usize) << 10) | start_x as usize,
+            ((start_y as u32) << 10) | start_x as u32,
         );
-        let (end_x, end_y) = (end_x as usize - 1, end_y as usize - 1); // offset by one
+        let (end_x, end_y) = (end_x as u32 - 1, end_y as u32 - 1); // offset by one
         self.list.send(GeCmd::Region2, (end_y << 10) | end_x);
         Ok(())
     }
@@ -592,21 +590,21 @@ impl Gl {
         }
         self.list.send(
             GeCmd::Scissor1,
-            ((start_y as usize) << 10) | start_x as usize,
+            ((start_y as u32) << 10) | start_x as u32,
         );
-        let (end_x, end_y) = (end_x as usize - 1, end_y as usize - 1);
+        let (end_x, end_y) = (end_x as u32 - 1, end_y as u32 - 1);
         self.list.send(GeCmd::Scissor2, (end_y << 10) | end_x);
         Ok(())
     }
     pub fn depth_test_function(&mut self, function: sys::DepthFunc) {
-        self.list.send(GeCmd::ZTest, function as usize);
+        self.list.send(GeCmd::ZTest, function as u32);
     }
     pub fn mask_depth_writes(&mut self, mask: bool) {
-        self.list.send(GeCmd::ZWriteDisable, usize::from(mask));
+        self.list.send(GeCmd::ZWriteDisable, u32::from(mask));
     }
     pub fn depth_range(&mut self, near: u16, far: u16, offset: usize) {
         // lower means farther, higher means closer
-        let (near, far) = (near as usize, far as usize);
+        let (near, far) = (near as u32, far as u32);
         /*assert!(
             far < near,
             "Depth far limit should not be higher than near limit"
@@ -641,7 +639,7 @@ impl Gl {
     pub fn fog(&mut self, near: f32, far: f32, color: Color32) {
         let distance = 1.0 / (far - near);
 
-        let color = color.as_abgr() as usize;
+        let color = color.as_abgr();
         self.list.send(GeCmd::FogColor, color & 0xffffff);
         self.list.send_float(GeCmd::Fog1, far);
         self.list.send_float(GeCmd::Fog2, distance);
@@ -658,7 +656,7 @@ impl Gl {
     pub unsafe fn call_list(&mut self, list: &'static [usize]) {
         let list_addr = list.as_ptr().addr();
         let (ptr1, ptr2) = split_address(list_addr);
-        self.list.send(GeCmd::Base, ptr2 as usize);
+        self.list.send(GeCmd::Base, ptr2 as u32);
         self.list.send(GeCmd::Call, ptr1);
     }
     pub fn bind_vertices<T>(
@@ -680,10 +678,10 @@ impl Gl {
         }
         self.list.send(
             GeCmd::VertexType,
-            vertex_type.bits().cast_unsigned() as usize,
+            vertex_type.bits().cast_unsigned(),
         );
 
-        let vertices_addr = vertices.as_ptr().addr();
+        let vertices_addr = vertices.as_ptr().addr() as u32;
         // 4 most significant bits for address (28 total)
         self.list.send(GeCmd::Base, (vertices_addr >> 8) & 0xf0000);
         self.list.send(GeCmd::Vaddr, vertices_addr & 0xffffff);
@@ -711,13 +709,13 @@ impl Gl {
 
         self.list.send(
             GeCmd::VertexType,
-            vertex_type.bits().cast_unsigned() as usize,
+            vertex_type.bits().cast_unsigned(),
         );
 
-        let indices_addr = indices.as_ptr().addr();
+        let indices_addr = indices.as_ptr().addr() as u32;
         self.list.send(GeCmd::Base, (indices_addr >> 8) & 0xf0000);
         self.list.send(GeCmd::Iaddr, indices_addr & 0xffffff);
-        let vertices_addr = vertices.as_ptr().addr();
+        let vertices_addr = vertices.as_ptr().addr() as u32;
         self.list.send(GeCmd::Base, (vertices_addr >> 8) & 0xf0000);
         self.list.send(GeCmd::Vaddr, vertices_addr & 0xffffff);
 
@@ -748,7 +746,7 @@ impl Gl {
     pub fn draw_bezier(&mut self, u_vertices: u8, v_vertices: u8) {
         self.list.send(
             GeCmd::Bezier,
-            ((v_vertices as usize) << 8) | (u_vertices as usize),
+            ((v_vertices as u32) << 8) | (u_vertices as u32),
         );
     }
     pub fn draw_spline(
@@ -760,14 +758,14 @@ impl Gl {
     ) {
         self.list.send(
             GeCmd::Spline,
-            ((v_edge as usize) << 18)
-                | ((u_edge as usize) << 16)
-                | ((v_vertices as usize) << 8)
-                | (u_vertices as usize),
+            ((v_edge as u32) << 18)
+                | ((u_edge as u32) << 16)
+                | ((v_vertices as u32) << 8)
+                | (u_vertices as u32),
         );
     }
     pub fn set_state(&mut self, state: sys::GuState, enable: bool) {
-        self.list.send(state_to_command(state), usize::from(enable));
+        self.list.send(state_to_command(state), u32::from(enable));
     }
     /// # Panics
     /// panics if the light index is higher than 3 (lights start from zero)
@@ -846,7 +844,7 @@ impl Gl {
         let kind = if components.bits() == 8 {
             2
         } else {
-            usize::from(components.bits() ^ 6 < 1)
+            u32::from(components.bits() ^ 6 < 1)
         };
         self.list.send(
             match light {
@@ -856,7 +854,7 @@ impl Gl {
                 3 => GeCmd::LightType3,
                 _ => panic!("Only four lights are supported"),
             },
-            ((light_type as usize & 0x03) << 8) | kind,
+            ((light_type as u32 & 0x03) << 8) | kind,
         );
     }
     /// # Panics
@@ -868,7 +866,7 @@ impl Gl {
         color: Color32,
     ) {
         use sys::LightComponent;
-        let color = (color.as_abgr() & 0xffffff) as usize;
+        let color = color.as_abgr() & 0xffffff;
         if component.intersects(LightComponent::AMBIENT) {
             self.list.send(
                 match light {
@@ -971,7 +969,7 @@ impl Gl {
         );
     }
     pub fn light_mode(&mut self, mode: sys::LightMode) {
-        self.list.send(GeCmd::LightMode, mode as usize);
+        self.list.send(GeCmd::LightMode, mode as u32);
     }
     // TODO: SceGuLightSpot
     /// You can think of this as a utility function rather than an actual GE command
@@ -1009,15 +1007,15 @@ impl Gl {
                 .union(sys::ClearFlags::DEPTH_BUFFER_BIT));
         self.list.send(
             GeCmd::ClearMode,
-            (relevant_flags.bits() << 8) as usize | 0x01,
+            relevant_flags.bits() << 8 | 0x01,
         );
     }
     pub fn disable_clear(&mut self) {
         self.list.send(GeCmd::ClearMode, 0);
     }
     pub fn mask_pixel(&mut self, mask: Color32) {
-        self.list.send(GeCmd::MaskRgb, mask.as_bgr() as usize);
-        self.list.send(GeCmd::MaskAlpha, mask.a() as usize);
+        self.list.send(GeCmd::MaskRgb, mask.as_bgr());
+        self.list.send(GeCmd::MaskAlpha, mask.a() as u32);
     }
     pub fn clear_color(&mut self, color: Color32) {
         self.material_update(sys::LightComponent::AMBIENT);
@@ -1030,52 +1028,52 @@ impl Gl {
         &mut self,
         func: sys::ColorFunc,
         color: Color32,
-        mask: usize,
+        mask: u32,
     ) {
-        self.list.send(GeCmd::ColorTest, func as usize & 0x03);
-        self.list.send(GeCmd::ColorRef, color.as_bgr() as usize);
+        self.list.send(GeCmd::ColorTest, func as u32 & 0x03);
+        self.list.send(GeCmd::ColorRef, color.as_bgr());
         self.list.send(GeCmd::ColorTestmask, mask);
     }
     pub fn color_material(&mut self, components: sys::LightComponent) {
         self.list.send(
             GeCmd::MaterialUpdate,
-            components.bits().cast_unsigned() as usize,
+            components.bits().cast_unsigned(),
         );
     }
     pub fn alpha_function(
         &mut self,
         func: sys::AlphaFunc,
-        value: usize,
-        mask: usize,
+        value: u32,
+        mask: u32,
     ) {
-        let arg = func as usize | ((value & 0xff) << 8) | ((mask & 0xff) << 16);
+        let arg = func as u32 | ((value & 0xff) << 8) | ((mask & 0xff) << 16);
         self.list.send(GeCmd::AlphaTest, arg);
     }
     pub fn ambient(&mut self, color: Color32) {
-        self.list.send(GeCmd::AmbientColor, color.as_bgr() as usize);
-        self.list.send(GeCmd::AmbientAlpha, color.a() as usize);
+        self.list.send(GeCmd::AmbientColor, color.as_bgr());
+        self.list.send(GeCmd::AmbientAlpha, color.a() as u32);
     }
     pub fn material_emissive(&mut self, color: Color32) {
         self.list
-            .send(GeCmd::MaterialEmissive, color.as_bgr() as usize);
+            .send(GeCmd::MaterialEmissive, color.as_bgr());
     }
     pub fn material_ambient(&mut self, color: Color32) {
         self.list
-            .send(GeCmd::MaterialAmbient, color.as_bgr() as usize);
-        self.list.send(GeCmd::MaterialAlpha, color.a() as usize);
+            .send(GeCmd::MaterialAmbient, color.as_bgr());
+        self.list.send(GeCmd::MaterialAlpha, color.a() as u32);
     }
     pub fn material_diffuse(&mut self, color: Color32) {
         self.list
-            .send(GeCmd::MaterialDiffuse, color.as_bgr() as usize);
+            .send(GeCmd::MaterialDiffuse, color.as_bgr());
     }
     pub fn material_specular(&mut self, color: Color32) {
         self.list
-            .send(GeCmd::MaterialSpecular, color.as_bgr() as usize);
+            .send(GeCmd::MaterialSpecular, color.as_bgr());
     }
     pub fn material_update(&mut self, update: sys::LightComponent) {
         // TODO: use bitflags
         self.list
-            .send(GeCmd::MaterialUpdate, update.bits() as usize & 0b111);
+            .send(GeCmd::MaterialUpdate, update.bits() as u32 & 0b111);
     }
     pub fn stencil_function(
         &mut self,
@@ -1085,7 +1083,7 @@ impl Gl {
     ) {
         self.list.send(
             GeCmd::StencilTest,
-            func as usize | ((ref_ as usize) << 8) | ((mask as usize) << 16),
+            func as u32 | ((ref_ as u32) << 8) | ((mask as u32) << 16),
         );
     }
     pub fn stencil_operation(
@@ -1096,7 +1094,7 @@ impl Gl {
     ) {
         self.list.send(
             GeCmd::StencilOp,
-            fail as usize | ((zfail as usize) << 8) | ((zpass as usize) << 16),
+            fail as u32 | ((zfail as u32) << 8) | ((zpass as u32) << 16),
         );
     }
     /// # Panics
@@ -1106,20 +1104,20 @@ impl Gl {
         op: sys::BlendOp,
         src: sys::BlendFactor,
         dst: sys::BlendFactor,
-        src_fix: usize,
-        dst_fix: usize,
+        src_fix: u32,
+        dst_fix: u32,
     ) {
         assert!(src_fix >> 24 == 0);
         assert!(dst_fix >> 24 == 0);
         self.list.send(
             GeCmd::BlendMode,
-            ((op as usize) << 8) | ((dst as usize) << 4) | src as usize,
+            ((op as u32) << 8) | ((dst as u32) << 4) | src as u32,
         );
         self.list.send(GeCmd::BlendFixedA, src_fix);
         self.list.send(GeCmd::BlendFixedB, dst_fix);
     }
     pub fn logical_operation(&mut self, op: sys::LogicalOperation) {
-        self.list.send(GeCmd::LogicOp, op as usize);
+        self.list.send(GeCmd::LogicOp, op as u32);
     }
     pub fn specular_coeff(&mut self, power: f32) {
         self.list.send_float(GeCmd::MaterialSpecularCoef, power);
@@ -1136,7 +1134,7 @@ impl Gl {
         self.list.send_float(GeCmd::ViewportXScale, width / 2.0);
         self.list.send_float(GeCmd::ViewportYScale, -height / 2.0);
     }
-    pub fn offset(&mut self, x: usize, y: usize) {
+    pub fn offset(&mut self, x: u32, y: u32) {
         self.list.send(GeCmd::OffsetX, x << 4);
         self.list.send(GeCmd::OffsetY, y << 4);
     }
@@ -1160,7 +1158,7 @@ impl Gl {
             let scalar = *scalar;
             if self.matrix_command_cache.test(matrix_mode, index, scalar) {
                 if index != last_index + 1 {
-                    self.list.send(number_cmd, index);
+                    self.list.send(number_cmd, index as u32);
                 }
                 self.list.send_float(data_cmd, scalar);
                 last_index = index;
@@ -1185,7 +1183,7 @@ impl Gl {
             let scalar = *scalar;
             if self.matrix_command_cache.test_projection(index, scalar) {
                 if index != last_index + 1 {
-                    self.list.send(GeCmd::ProjMatrixNumber, index);
+                    self.list.send(GeCmd::ProjMatrixNumber, index as u32);
                 }
                 self.list.send_float(GeCmd::ProjMatrixData, scalar);
                 last_index = index;
@@ -1201,14 +1199,14 @@ impl Gl {
     }
     pub fn set_bone_matrix(&mut self, index: u8, matrix: &Mat3By4) {
         self.list
-            .send(GeCmd::BoneMatrixNumber, (index as usize) * 12);
+            .send(GeCmd::BoneMatrixNumber, (index as u32) * 12);
         // 3 * 4 matrix
         for scalar in matrix.as_ref() {
             self.list.send_float(GeCmd::BoneMatrixData, *scalar);
         }
     }
     pub fn texture_env_color(&mut self, color: Color32) {
-        self.list.send(GeCmd::TexEnvColor, color.as_bgr() as usize);
+        self.list.send(GeCmd::TexEnvColor, color.as_bgr());
     }
     pub fn texture_flush(&mut self) {
         self.list.send_float(GeCmd::TexFlush, 0.0);
@@ -1219,7 +1217,7 @@ impl Gl {
         mag: sys::TextureFilter,
     ) {
         self.list
-            .send(GeCmd::TexFilter, ((mag as usize) << 8) | (min as usize));
+            .send(GeCmd::TexFilter, ((mag as u32) << 8) | (min as u32));
     }
     pub fn texture_function(
         &mut self,
@@ -1229,7 +1227,7 @@ impl Gl {
     ) {
         self.list.send(
             GeCmd::TexFunc,
-            ((tcc as usize) << 8) | (tfx as usize) | usize::from(fragment_2x),
+            ((tcc as u32) << 8) | (tfx as u32) | u32::from(fragment_2x),
         );
     }
     /// # Safety
@@ -1244,7 +1242,7 @@ impl Gl {
         stride: u16,
     ) {
         use sys::MipmapLevel;
-        assert!((mipmap as usize) < 8);
+        assert!((mipmap as u32) < 8);
         let (tbp1, tbp2) = split_address(buffer.addr());
         self.list.send(
             match mipmap {
@@ -1284,7 +1282,7 @@ impl Gl {
                 MipmapLevel::Level6 => GeCmd::TexSize6,
                 MipmapLevel::Level7 => GeCmd::TexSize7,
             },
-            (size.1.ilog2() << 8 | size.0.ilog2()) as usize,
+            size.1.ilog2() << 8 | size.0.ilog2(),
         );
         self.texture_flush();
     }
@@ -1294,10 +1292,10 @@ impl Gl {
         bias: i8,
     ) {
         // PSPSDK: mipmap bias?
-        let offset = (bias as isize * 16).clamp(-128, 128);
+        let offset = (bias as i32 * 16).clamp(-128, 128);
         self.list.send(
             GeCmd::TexLevel,
-            (offset.cast_unsigned() << 16) | mode as usize,
+            (offset.cast_unsigned() << 16) | mode as u32,
         );
     }
     pub fn texture_map_mode(
@@ -1307,10 +1305,10 @@ impl Gl {
     ) {
         self.list.send(
             GeCmd::TexMapMode,
-            ((proj_mode as usize) << 8) | mode as usize,
+            ((proj_mode as u32) << 8) | mode as u32,
         );
     }
-    pub fn texture_env_map_matrix(&mut self, u: usize, v: usize) {
+    pub fn texture_env_map_matrix(&mut self, u: u32, v: u32) {
         self.list.send(GeCmd::TexShadeLs, (v << 8) | (u & 0x03));
     }
     pub fn texture_mode(
@@ -1321,13 +1319,13 @@ impl Gl {
     ) {
         self.list.send(
             GeCmd::TexMode,
-            ((max_mips as usize) << 16)
-                | (usize::from(multi_clut) << 8)
-                | usize::from(swizzle),
+            ((max_mips as u32) << 16)
+                | (u32::from(multi_clut) << 8)
+                | u32::from(swizzle),
         );
     }
     pub fn texture_format(&mut self, format: sys::TexturePixelFormat) {
-        self.list.send(GeCmd::TexFormat, format as usize);
+        self.list.send(GeCmd::TexFormat, format as u32);
     }
     /// Set texture offset
     ///
@@ -1359,7 +1357,7 @@ impl Gl {
     ) {
         self.list.send(
             GeCmd::TexWrap,
-            ((v as usize & 0xff) << 8) | (u as usize & 0xff),
+            ((v as u32 & 0xff) << 8) | (u as u32 & 0xff),
         );
     }
     pub fn texture(&mut self, mipmap: sys::MipmapLevel, texture: &Texture) {
@@ -1383,40 +1381,40 @@ impl Gl {
     pub fn set_dither(&mut self, matrix: &I8Mat4) {
         self.list.send(
             GeCmd::Dith0,
-            ((matrix.x.w as usize) << 12)
-                | ((matrix.x.z as usize) << 8)
-                | ((matrix.x.y as usize) << 4)
-                | (matrix.x.x as usize),
+            ((matrix.x.w as u32) << 12)
+                | ((matrix.x.z as u32) << 8)
+                | ((matrix.x.y as u32) << 4)
+                | (matrix.x.x as u32),
         );
         self.list.send(
             GeCmd::Dith1,
-            ((matrix.y.w as usize) << 12)
-                | ((matrix.y.z as usize) << 8)
-                | ((matrix.y.y as usize) << 4)
-                | (matrix.y.x as usize),
+            ((matrix.y.w as u32) << 12)
+                | ((matrix.y.z as u32) << 8)
+                | ((matrix.y.y as u32) << 4)
+                | (matrix.y.x as u32),
         );
         self.list.send(
             GeCmd::Dith2,
-            ((matrix.z.w as usize) << 12)
-                | ((matrix.z.z as usize) << 8)
-                | ((matrix.z.y as usize) << 4)
-                | (matrix.z.x as usize),
+            ((matrix.z.w as u32) << 12)
+                | ((matrix.z.z as u32) << 8)
+                | ((matrix.z.y as u32) << 4)
+                | (matrix.z.x as u32),
         );
         self.list.send(
             GeCmd::Dith3,
-            ((matrix.w.w as usize) << 12)
-                | ((matrix.w.z as usize) << 8)
-                | ((matrix.w.y as usize) << 4)
-                | (matrix.w.x as usize),
+            ((matrix.w.w as u32) << 12)
+                | ((matrix.w.z as u32) << 8)
+                | ((matrix.w.y as u32) << 4)
+                | (matrix.w.x as u32),
         );
     }
     pub fn patch_division(&mut self, u_divisions: u8, v_divisions: u8) {
         self.list.send(
             GeCmd::PatchDivision,
-            ((v_divisions as usize) << 8) | u_divisions as usize,
+            ((v_divisions as u32) << 8) | u_divisions as u32,
         );
     }
-    pub fn patch_front_face(&mut self, unknown: usize) {
+    pub fn patch_front_face(&mut self, unknown: u32) {
         self.list.send(GeCmd::PatchFacing, unknown);
     }
     pub fn patch_primitive(&mut self, primitive: sys::PatchPrimitive) {
@@ -1470,7 +1468,7 @@ impl Gl {
         self.list.send(GeCmd::TransferSrc, src1);
         self.list.send(
             GeCmd::TransferSrcW,
-            ((src2 as usize) << 16) | src.stride() as usize,
+            ((src2 as u32) << 16) | src.stride() as u32,
         );
         self.list.send(GeCmd::TransferSrcPos, 0); // It's already off-set
 
@@ -1478,16 +1476,16 @@ impl Gl {
         self.list.send(GeCmd::TransferDst, dst1);
         self.list.send(
             GeCmd::TransferDstW,
-            ((dst2 as usize) << 16) | dst.stride() as usize,
+            ((dst2 as u32) << 16) | dst.stride() as u32,
         );
         self.list.send(GeCmd::TransferDstPos, 0); // It's already off-set
 
         self.list.send(
             GeCmd::TransferSize,
-            (dst.height() as usize - 1) << 10 | (dst.width() as usize - 1),
+            (dst.height() as u32 - 1) << 10 | (dst.width() as u32 - 1),
         );
         self.list
-            .send(GeCmd::TransferStart, usize::from(size_of::<T>() == 4));*/
+            .send(GeCmd::TransferStart, u32::from(size_of::<T>() == 4));*/
     }
 
     pub fn transfer_sync(&mut self) {
@@ -1511,16 +1509,16 @@ impl Gl {
             _ => {}
         }
 
-        let arg = (clut.format() as usize)
-            | ((shift as usize) << 2)
-            | ((mask as usize) << 8)
-            | ((unknown as usize) << 16);
+        let arg = (clut.format() as u32)
+            | ((shift as u32) << 2)
+            | ((mask as u32) << 8)
+            | ((unknown as u32) << 16);
         self.list.send(GeCmd::ClutFormat, arg);
         let (ptr1, ptr2) = split_address(clut.buffer().as_ptr().addr());
         self.list.send(GeCmd::ClutAddr, ptr1);
-        self.list.send(GeCmd::ClutAddrUpper, ptr2 as usize);
+        self.list.send(GeCmd::ClutAddrUpper, ptr2 as u32);
         self.list
-            .send(GeCmd::LoadClut, (clut.width() * clut.height() / 8) as usize);
+            .send(GeCmd::LoadClut, (clut.width() * clut.height() / 8) as u32);
         Ok(())
     }
 }

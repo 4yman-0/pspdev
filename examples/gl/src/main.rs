@@ -10,9 +10,6 @@ use renderer::render_tex_aabb;
 
 use psp_apis::fs::{
     Directory,
-    //File,
-    //self,
-    //Path,
 };
 use psp_apis::gfx::{
     Gfx,
@@ -21,7 +18,6 @@ use psp_apis::gfx::{
 };
 use psp_apis::input::{Buttons, Input};
 
-//use alloc::{boxed::Box /*, vec::Vec*/};
 use glam::{EulerRot, Mat3, Mat4, Vec2, Vec3};
 use psp_sys::{dprint, enable_home_button, sys};
 
@@ -68,41 +64,18 @@ fn psp_main() {
     const NAV_ROT_SPEED: f32 = NAV_SPEED;
 
     enable_home_button();
-    let mut gfx = Gfx::init(sys::TexturePixelFormat::Psm5551)
-        .unwrap()
-        .depth_test()
-        .double_buffering()
-        .culling()
-        .scissor_test()
-        .unwrap()
-        .clip_planes()
-        .texture_2d()
-        .build()
-        .unwrap();
+    let mut gfx = Gfx::init_default().unwrap();
     warn_unwrap(gfx.start_frame_with(|frame| {
-        // Initial setup pass
         let gl = frame.gl_mut();
-        gl.blend_function(
-            sys::BlendOp::Add,
-            sys::BlendFactor::SrcAlpha,
-            sys::BlendFactor::OneMinusSrcAlpha,
-            0,
-            0,
-        );
-        gl.set_state(sys::GuState::Blend, true);
 
-        //gl.depth_test_function(sys::DepthFunc::);
-        let mut perspective = Mat4::perspective_rh_gl(
+        let perspective = Mat4::perspective_rh_gl(
             deg_to_rad(90.0), //90º
             16.0 / 9.0,
-            0.8,
+            1.0,
             // it has to be negative otherwise it wont work
-            -0.8,
+            -1.0,
         );
-        perspective.w_axis.z *= 0.9;
         gl.overwrite_projection_matrix(perspective);
-
-        gl.set_matrix(MatrixMode::Texture, &Mat3By4::ZERO);
 
         gl.shading_model(sys::ShadingModel::Flat);
 
@@ -267,6 +240,6 @@ fn psp_main() {
             Ok(())
         }));
 
-        psp_apis::display::wait_vblank();
+        psp_apis::display::wait_vblank_start();
     }
 }

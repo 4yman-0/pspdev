@@ -1,20 +1,21 @@
 use super::vram_alloc::VramChunk;
 use psp_sys::sys::TexturePixelFormat;
 
-pub fn texture_pixel_size(psm: TexturePixelFormat) -> usize {
+pub fn texture_size(len: usize, psm: TexturePixelFormat) -> usize {
     match psm {
-        //TexturePixelFormat::PsmT4 => length >> 1,
-        TexturePixelFormat::PsmT8 => 1,
+        TexturePixelFormat::PsmT4
+        | TexturePixelFormat::PsmDxt1 => len / 2,
+        TexturePixelFormat::PsmT8
+        | TexturePixelFormat::PsmDxt5
+        | TexturePixelFormat::PsmDxt3 => len,
 
         TexturePixelFormat::Psm5650
         | TexturePixelFormat::Psm5551
         | TexturePixelFormat::Psm4444
-        | TexturePixelFormat::PsmT16 => 2,
+        | TexturePixelFormat::PsmT16 => len * 2,
 
-        TexturePixelFormat::Psm8888 | TexturePixelFormat::PsmT32 => 4,
-
-        // TODO: support other texture types (Dxt1/3/5)
-        _ => unimplemented!(),
+        TexturePixelFormat::Psm8888
+         | TexturePixelFormat::PsmT32 => len * 4,
     }
 }
 
@@ -37,9 +38,9 @@ impl Texture {
     ) -> Self {
         Self {
             chunk: {
-                let pixel_size = texture_pixel_size(format);
-                let size = width as usize * height as usize * pixel_size;
-                VramChunk::alloc(size, pixel_size)
+                let size = texture_size(width as usize * height as usize, format);
+				// align to 4 by default
+                VramChunk::alloc(size, 4)
             },
             size: (width, height),
             format,
@@ -87,7 +88,7 @@ impl Texture {
 
     pub fn swizzle_from_slice(&mut self, src: &[u8]) -> Option<()> {
         let (width, height) = (self.width() as usize, self.height() as usize);
-        if src.len() != width * height * texture_pixel_size(self.format) {
+        if src.len() != texture_size(width * height, self.format) {
             return None;
         }
         if !width.is_multiple_of(16) || !height.is_multiple_of(8) {

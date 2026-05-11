@@ -7,18 +7,16 @@ extern crate alloc;
 
 use psp_apis::fs::{
     Directory,
-    //self,
-    //Path,
+	//File,
 };
 use psp_apis::gfx::{
     Gfx,
     color::Color32,
     gl::{Gl, GlResult, Mat3By4, MatrixMode},
-    texture::{Texture /*, texture_pixel_size*/},
+    texture::Texture,
     vertex::{VertexSize, const_vt_size},
 };
 
-//use alloc::{boxed::Box /*, vec::Vec*/};
 use glam::{Mat3, Mat4, Vec3};
 use psp_sys::{dprint, enable_home_button, sys};
 
@@ -106,54 +104,30 @@ fn deg_to_rad(deg: f32) -> f32 {
 fn set_frame_size(gl: &mut Gl, width: u16, height: u16) -> GlResult<()> {
     gl.draw_region(0, 0, width, height)?;
     gl.scissor_region(0, 0, width, height)?;
-    gl.offset(2048 - (width as usize / 2), 2048 - (height as usize / 2));
+    gl.offset(2048 - (width as u32 / 2), 2048 - (height as u32 / 2));
     gl.viewport(2048.0, 2048.0, width as _, height as _);
     Ok(())
 }
 
 fn psp_main() {
     enable_home_button();
-    let mut gfx = Gfx::init(sys::TexturePixelFormat::Psm8888)
-        .unwrap()
-        .depth_test()
-        .double_buffering()
-        .culling()
-        .scissor_test()
-        .unwrap()
-        .clip_planes()
-        .texture_2d()
-        .build()
-        .unwrap();
+    let mut gfx = Gfx::init_default().unwrap();
     warn_unwrap(gfx.start_frame_with(|frame| {
-        // Initial setup pass
         let gl = frame.gl_mut();
-        gl.patch_division(2, 2);
-        gl.blend_function(
-            sys::BlendOp::Add,
-            sys::BlendFactor::SrcAlpha,
-            sys::BlendFactor::OneMinusSrcAlpha,
-            u8::MAX as _,
-            u8::MAX as _,
-        );
-        gl.set_state(sys::GuState::Blend, true);
-
-        //gl.depth_test_function(sys::DepthFunc::);
         let mut perspective = Mat4::perspective_rh_gl(
-            deg_to_rad(90.0), //90º
+            deg_to_rad(90.0),
             16.0 / 9.0,
-            0.8,
-            // it has to be negative otherwise it wont work
-            -0.8,
+            1.0,
+            -1.0,
         );
-        perspective.w_axis.z *= 0.9;
         gl.overwrite_projection_matrix(perspective);
 
-        gl.set_matrix(MatrixMode::Texture, &Mat3By4::ZERO);
+	    gl.texture_filter(
+	        sys::TextureFilter::Linear,
+	        sys::TextureFilter::Linear,
+	    );
 
         gl.shading_model(sys::ShadingModel::Flat);
-
-        gl.set_state(sys::GuState::Lighting, true);
-        gl.light_mode(sys::LightMode::SeparateSpecularColor);
         Ok(())
     }));
     let emulated = Directory::open(c"ms0:/PSP/GAME/PSPDEV_EMU").is_ok();
@@ -173,7 +147,7 @@ fn psp_main() {
 
     loop {
         frame_clock = frame_clock.update();
-        yaw += 0.005;
+        yaw += 0.07;
         if yaw > ::core::f32::consts::PI * 2.0 {
             yaw -= ::core::f32::consts::PI * 2.0;
         }
@@ -183,10 +157,7 @@ fn psp_main() {
             gl.list_mut().start();
 
             set_frame_size(gl, texture.width(), texture.height())?;
-            gl.set_matrix(
-                MatrixMode::View,
-                &Mat3By4::IDENTITY,
-            );
+            gl.set_matrix(MatrixMode::View, &Mat3By4::IDENTITY);
             unsafe {
                 gl.set_frame_buffer(&mut texture).unwrap();
             }
@@ -202,8 +173,9 @@ fn psp_main() {
             gl.set_matrix(
                 MatrixMode::Model,
                 &Mat3By4::from_mat3_vec3(
-                    Mat3::from_rotation_y(yaw),
-                    Vec3::new(0.0, 0.0, -1.0),
+                    Mat3::from_rotation_y(yaw)
+                     * (Mat3::IDENTITY * 2.0),
+                    Vec3::new(0.0, 0.3, -1.5),
                 ),
             );
             let v = gl.bind_vertices(
@@ -231,7 +203,7 @@ fn psp_main() {
                 1,
             )?;
 
-            {
+            /*{
                 // Gran Turismo jittering
                 const JITTER: f32 = 1.0 / 272.0;
                 let mut view = Mat3By4::IDENTITY;
@@ -242,12 +214,8 @@ fn psp_main() {
                     view.w_axis.y += JITTER;
                 }
                 gl.set_matrix(MatrixMode::View, &view)
-            }
+            }*/
 
-            gl.texture_filter(
-                sys::TextureFilter::Linear,
-                sys::TextureFilter::Linear,
-            );
             gl.clear_color(Color32::WHITE);
             gl.set_state(sys::GuState::Texture2D, true);
             gl.texture(sys::MipmapLevel::None, &texture);
@@ -265,6 +233,6 @@ fn psp_main() {
             Ok(())
         }));
 
-        psp_apis::display::wait_vblank();
+        psp_apis::display::wait_vblank_start();
     }
 }

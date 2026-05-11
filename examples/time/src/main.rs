@@ -8,21 +8,28 @@ use psp_sys::{dprint, sys};
 psp_sys::module!("time", 0, 1);
 
 fn print_clock(clock: &sys::ScePspDateTime) {
+    dprint!(
+        " {}/{}/{} {}:{}:{}",
+        clock.day,
+        clock.month,
+        clock.year,
+        clock.hour,
+        clock.minutes,
+        clock.seconds,
+    );
+    dprint!(
+        " Day of week: {:?}",
+        rtc::day_of_week(
+            clock.year.into(),
+            clock.month.into(),
+            clock.day.into()
+        ),
+    );
 	dprint!(
-		" {}/{}/{} {}:{}:{}",
-		clock.day,
-		clock.month,
-		clock.year,
-		clock.hour,
-		clock.minutes,
-		clock.seconds,
-	);
-	dprint!(
-		" Day of week: {:?}",
-		rtc::day_of_week(
+		" Days in this month: {}",
+		rtc::days_in_month(
 			clock.year.into(),
 			clock.month.into(),
-			clock.day.into()
 		),
 	);
 }
@@ -30,10 +37,7 @@ fn print_clock(clock: &sys::ScePspDateTime) {
 fn psp_main() {
     psp_sys::enable_home_button();
 
-	dprint!(
-		"Ticks per second: {}",
-		rtc::ticks_per_second(),
-	);
+    dprint!("Ticks per second: {}", rtc::ticks_per_second(),);
 
     let clock = rtc::current_local_clock().unwrap();
     dprint!("Current local clock: ");
