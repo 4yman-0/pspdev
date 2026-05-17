@@ -134,7 +134,7 @@ unsafe fn init() {
         VRAM_BASE as *const u8,
         BUFFER_WIDTH,
         sys::DisplayPixelFormat::Psm8888,
-        sys::DisplaySetBufSync::NextFrame,
+        sys::DisplaySetBufSync::NextVblank,
     );
 }
 

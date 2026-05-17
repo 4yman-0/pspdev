@@ -147,8 +147,7 @@ pub enum ModuleInfoAttr {
 
 #[repr(C, packed)]
 pub struct SceModuleInfo {
-    // TODO: Change this type to `ModuleInfoAttr`. This is a breaking change.
-    pub mod_attribute: u16,
+    pub mod_attribute: ModuleInfoAttr,
     pub mod_version: [u8; 2],
     pub mod_name: [u8; 27],
     pub terminal: u8,

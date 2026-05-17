@@ -22,6 +22,7 @@ pub mod debug;
 
 pub use psp_vfpu as vfpu;
 mod eabi;
+pub mod fpu;
 pub mod sys;
 pub mod vfpu_context;
 
@@ -104,6 +105,8 @@ macro_rules! _start {
             unsafe { init_cwd($argv as *mut u8) };
         }
 
+        $crate::fpu::set_fcr31_ieee754();
+
         // TODO: Maybe print any error to debug screen?
         let _ = $crate::catch_unwind($psp_main);
 
@@ -128,7 +131,7 @@ macro_rules! module {
             #[used]
             static MODULE_INFO: $crate::Align16<$crate::sys::SceModuleInfo> =
                 $crate::Align16($crate::sys::SceModuleInfo {
-                    mod_attribute: 0,
+                    mod_attribute: $crate::sys::ModuleInfoAttr::User,
                     mod_version: [$version_major, $version_minor],
                     mod_name: $crate::sys::SceModuleInfo::name($name),
                     terminal: 0,

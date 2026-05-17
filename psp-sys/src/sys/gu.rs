@@ -197,7 +197,6 @@ pub enum SplineMode {
 /// Shading Model
 #[derive(Clone, Copy)]
 #[repr(u32)]
-// TODO: Should this be `ShadeMode` (no L)?
 pub enum ShadingModel {
     Flat = 0,
     Smooth = 1,
@@ -241,8 +240,8 @@ pub enum TextureFilter {
 #[derive(Debug, Clone, Copy)]
 #[repr(u32)]
 pub enum TextureMapMode {
-    TextureCoords = 0,
-    TextureMatrix = 1,
+    Coords = 0,
+    Matrix = 1,
     EnvironmentMap = 2,
 }
 
@@ -355,9 +354,9 @@ bitflags::bitflags! {
         const STENCIL_BUFFER_BIT = 2;
         /// Clears the depth buffer.
         const DEPTH_BUFFER_BIT = 4;
-        /// Enables fast clearing. This divides the screen into 16 parts
-        /// and clears them in parallel.
-        const FAST_CLEAR_BIT = 16;
+        ///// Enables fast clearing. This divides the screen into 16 parts
+        ///// and clears them in parallel.
+        //const FAST_CLEAR_BIT = 16;
     }
 }
 
@@ -452,9 +451,10 @@ pub enum BlendFactor {
     OneMinusSrcAlpha = 3,
     DstAlpha = 4,
     OneMinusDstAlpha = 5,
-    // TODO: There are likely 4 missing values here.
-    // What are 6, 7, 8, 9? This can probably be determined with some experimentation.
-    // They may also be reserved values.
+	DoubleSrcAlpha = 6,
+	OneMinusDoubleSrcAlpha = 7,
+	DoubleDstAlpha = 8,
+	OneMinusDoubleDstAlpha = 9,
     /// Use the fixed values provided in `sceGuBlendFunc`.
     Fix = 10,
 }

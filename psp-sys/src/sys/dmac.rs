@@ -1,5 +1,3 @@
-// TODO: missing flags and version
-
 use core::ffi::c_void;
 
 psp_extern! {

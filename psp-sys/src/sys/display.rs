@@ -5,9 +5,14 @@ use core::ffi::c_void;
 ///
 /// Display modes other than LCD are unknown.
 pub enum DisplayMode {
-    // https://github.com/hrydgard/ppsspp/blob/25197451e5cdb1b83dc69fea14c501bdb1e13b1a/Core/HLE/sceDisplay.cpp#L922
+    // // https://github.com/hrydgard/ppsspp/blob/25197451e5cdb1b83dc69fea14c501bdb1e13b1a/Core/HLE/sceDisplay.cpp#L922
+
+    /// LCD 480x272 @ 59.94 Hz
     Lcd = 0,
-    // TODO: What are the other modes?
+    /// VESA VGA 640x480 @ 59.94 Hz
+    Vesa1A = 0x1A,
+    /// Pseudo VGA 640x480 @ 59.94 Hz
+    PseudoVga = 0x60,
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -15,7 +20,7 @@ pub enum DisplayMode {
 /// Framebuffer pixel formats.
 pub enum DisplayPixelFormat {
     /// 16-bit RGB 5:6:5
-    Psm5650 = 0,
+    Psm565 = 0,
     /// 16-bit RGBA 5:5:5:1
     Psm5551 = 1,
     /// 16-bit RGBA 4:4:4:4
@@ -27,10 +32,10 @@ pub enum DisplayPixelFormat {
 #[derive(Debug, Clone, Copy)]
 #[repr(u32)]
 pub enum DisplaySetBufSync {
-    /// Buffer change effective immediately
+    /// Apply on the next horizontal sync (immediate)
     Immediate = 0,
-    /// Buffer change effective next frame
-    NextFrame = 1,
+    /// Apply on the next vertical blank
+    NextVblank = 1,
 }
 
 psp_extern! {

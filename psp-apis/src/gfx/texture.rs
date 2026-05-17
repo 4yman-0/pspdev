@@ -159,6 +159,19 @@ impl Texture {
         )
     }
 
+    pub fn can_be_depthbuffer(&self) -> bool {
+        use TexturePixelFormat as TexelFmt;
+        if self.swizzled {
+            return false;
+        }
+        matches!(
+            self.format,
+               TexelFmt::Psm5650
+                |TexelFmt::Psm4444
+                | TexelFmt::Psm5551
+        )
+    }
+
     pub fn swizzle_from_slice(&mut self, src: &[u8]) -> Option<()> {
         let (width, height) = (self.width() as usize, self.height() as usize);
         if src.len() != texture_size(width * height, self.format) {

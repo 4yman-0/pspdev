@@ -488,11 +488,7 @@ impl Gl {
         &mut self,
         depth: &mut Texture,
     ) -> GlResult<()> {
-        use sys::TexturePixelFormat as TexelFmt;
-        if !matches!(
-            depth.format(),
-            TexelFmt::Psm4444 | TexelFmt::Psm5650 | TexelFmt::Psm5551
-        ) {
+        if !depth.can_be_depthbuffer() {
             return Err(GlError::InvalidFramebuffer);
         }
         let (depth1, depth2) = split_address(depth.buffer().as_ptr().addr());
@@ -535,7 +531,7 @@ impl Gl {
                     sys::TexturePixelFormat,
                     sys::DisplayPixelFormat,
                 >(display.format()),
-                sys::DisplaySetBufSync::NextFrame,
+                sys::DisplaySetBufSync::NextVblank,
             );
         };
         Ok(())
@@ -562,8 +558,8 @@ impl Gl {
             sys::sceDisplaySetFrameBuf(
                 core::ptr::null_mut(),
                 0,
-                DisplayPixelFormat::Psm5650,
-                sys::DisplaySetBufSync::NextFrame,
+                DisplayPixelFormat::Psm565,
+                sys::DisplaySetBufSync::NextVblank,
             );
         }
     }
