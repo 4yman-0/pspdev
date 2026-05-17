@@ -114,11 +114,7 @@ impl File {
     }
     pub fn write_async(&self, data: &[u8]) -> FsResult<()> {
         let bytes_written = unsafe {
-            sys::sceIoWriteAsync(
-                self.uid,
-                data.as_ptr().cast(),
-                data.len() as u32,
-            )
+            sys::sceIoWriteAsync(self.uid, data.as_ptr().cast(), data.len())
         } as usize;
         if bytes_written != data.len() {
             Err(FsError::UnexpectedBytesWritten)
@@ -129,11 +125,7 @@ impl File {
 
     pub fn read(&mut self, data: &mut [u8]) -> FsResult<usize> {
         let bytes_written = unsafe {
-            sys::sceIoRead(
-                self.uid,
-                data.as_mut_ptr().cast(),
-                data.len() as u32,
-            )
+            sys::sceIoRead(self.uid, data.as_mut_ptr().cast(), data.len())
         } as usize;
         if bytes_written != data.len() {
             Err(FsError::UnexpectedBytesWritten)
@@ -150,11 +142,7 @@ impl File {
     }
     pub fn read_async(&mut self, data: &mut [u8]) -> FsResult<()> {
         let bytes_written = unsafe {
-            sys::sceIoReadAsync(
-                self.uid,
-                data.as_mut_ptr().cast(),
-                data.len() as u32,
-            )
+            sys::sceIoReadAsync(self.uid, data.as_mut_ptr().cast(), data.len())
         } as usize;
         if bytes_written != data.len() {
             Err(FsError::UnexpectedBytesWritten)

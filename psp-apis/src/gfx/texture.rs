@@ -166,9 +166,7 @@ impl Texture {
         }
         matches!(
             self.format,
-               TexelFmt::Psm5650
-                |TexelFmt::Psm4444
-                | TexelFmt::Psm5551
+            TexelFmt::Psm5650 | TexelFmt::Psm4444 | TexelFmt::Psm5551
         )
     }
 

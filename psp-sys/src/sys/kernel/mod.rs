@@ -136,7 +136,7 @@ psp_extern! {
         partition: SceSysMemPartitionId,
         name: *const u8,
         type_: SceSysMemBlockTypes,
-        size: u32,
+        size: usize,
         addr: *mut c_void,
     ) -> SceUid;
 
@@ -274,7 +274,7 @@ psp_extern! {
 
     #[psp(0x27CC57F0)]
     /// Get the time in seconds since the epoch (1st Jan 1970)
-    pub fn sceKernelLibcTime(t: *mut i32) -> i32;
+    pub fn sceKernelLibcTime(t: *mut u32) -> i32;
 
     #[psp(0x91E4F6A7)]
     /// Get the processor clock used since the start of the process

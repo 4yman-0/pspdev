@@ -23,19 +23,13 @@ unsafe impl GlobalAlloc for SystemAlloc {
             None => return ptr::null_mut(),
         };
 
-        // Convert to u32 safely
-        let size_u32 = match u32::try_from(size) {
-            Ok(s) => s,
-            Err(_) => return ptr::null_mut(),
-        };
-
         // Allocate from system
         let id = unsafe {
             sys::sceKernelAllocPartitionMemory(
                 SceSysMemPartitionId::SceKernelPrimaryUserPartition,
                 c"mem".as_ptr().cast(),
                 SceSysMemBlockTypes::Low,
-                size_u32,
+                size,
                 ptr::null_mut(),
             )
         };

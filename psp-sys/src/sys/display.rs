@@ -55,7 +55,7 @@ psp_extern! {
     /// # Return value
     ///
     /// ???
-    pub fn sceDisplaySetMode(mode: DisplayMode, width: usize, height: usize) -> u32;
+    pub fn sceDisplaySetMode(mode: DisplayMode, width: u32, height: u32) -> u32;
 
     #[psp(0xDEA197D4)]
     /// Get display mode
@@ -86,7 +86,7 @@ psp_extern! {
     /// 0 on success
     pub fn sceDisplaySetFrameBuf(
         top_addr: *const u8,
-        buffer_width: usize,
+        buffer_width: u32,
         pixel_format: DisplayPixelFormat,
         sync: DisplaySetBufSync,
     ) -> u32;
@@ -102,7 +102,7 @@ psp_extern! {
     /// - `sync`: One of `DisplaySetBufSync`
     pub fn sceDisplayGetFrameBuf(
         top_addr: *mut *mut c_void,
-        buffer_width: *mut usize,
+        buffer_width: *mut u32,
         pixel_format: *mut DisplayPixelFormat,
         sync: DisplaySetBufSync,
     ) -> i32;

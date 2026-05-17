@@ -32,7 +32,7 @@ pub fn interrupt_enabled() -> bool {
 
 /// The time is only returned in seconds.
 pub fn time_since_epoch() -> core::time::Duration {
-    let mut secs = 0i32;
+    let mut secs = 0u32;
     unsafe {
         let _ = sys::sceKernelLibcTime(&mut secs);
     }
@@ -126,7 +126,7 @@ impl MemoryBlock {
                     partition,
                     name.as_ptr().cast(),
                     block_type,
-                    size as u32,
+                    size,
                     if let Some(addr) = address {
                         addr as *mut c_void
                     } else {

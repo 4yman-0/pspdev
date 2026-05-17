@@ -1,4 +1,4 @@
-#BINARY_NAME=psp-apis -F glam/nostd-libm
+#BINARY_NAME=psp-apis --no-default-features
 #BINARY_NAME=gl
 #BINARY_NAME=music
 #BINARY_NAME=anim

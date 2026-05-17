@@ -15,7 +15,7 @@ pub mod gfx;
 
 pub mod input;
 pub mod kernel;
-pub mod mp3;
+//pub mod mp3;
 pub mod power;
 pub mod rtc;
 pub mod thread;

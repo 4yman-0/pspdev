@@ -197,7 +197,7 @@ psp_extern! {
     /// # Return value
     ///
     /// The number of bytes read
-    pub fn sceIoRead(fd: SceUid, data: *mut c_void, size: u32)
+    pub fn sceIoRead(fd: SceUid, data: *mut c_void, size: usize)
      -> i32;
 
     #[psp(0xA0B5A7C2)]
@@ -212,7 +212,7 @@ psp_extern! {
     /// # Return value
     ///
     /// < 0 on error.
-    pub fn sceIoReadAsync(fd: SceUid, data: *mut c_void, size: u32)
+    pub fn sceIoReadAsync(fd: SceUid, data: *mut c_void, size: usize)
      -> i32;
 
 
@@ -242,7 +242,7 @@ psp_extern! {
     /// # Return value
     ///
     /// < 0 on error.
-    pub fn sceIoWriteAsync(fd: SceUid, data: *const c_void, size: u32)
+    pub fn sceIoWriteAsync(fd: SceUid, data: *const c_void, size: usize)
      -> i32;
 
     #[psp(0x27EB27B8, i_ii_i_rii)]

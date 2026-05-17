@@ -526,7 +526,7 @@ impl Gl {
         unsafe {
             sys::sceDisplaySetFrameBuf(
                 display.buffer().as_ptr(),
-                display.width() as usize,
+                display.width() as u32,
                 core::mem::transmute::<
                     sys::TexturePixelFormat,
                     sys::DisplayPixelFormat,
@@ -540,8 +540,8 @@ impl Gl {
         unsafe {
             sys::sceDisplaySetMode(
                 sys::DisplayMode::Lcd,
-                width as usize,
-                height as usize,
+                width as u32,
+                height as u32,
             );
         };
         self.display_size = Some((width, height));
