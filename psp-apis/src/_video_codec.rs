@@ -71,7 +71,7 @@ impl VideoCodec {
 
 	pub fn check_needed_memory(&self) -> NativeResult<()> {
 		native_error(unsafe {
-			sys::sceVideocodecCheckNeedMem((&raw const self.codec) as *mut u32, self.codec_type as i32)
+			sys::sceVideocodecCheckNeedMem((& self.codec) as *mut u32, self.codec_type as i32)
 		})
 	}
 }

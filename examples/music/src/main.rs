@@ -1,6 +1,6 @@
-#![cfg(target_os = "psp")]
 #![no_std]
 #![no_main]
+#![cfg(target_os = "psp")]
 
 extern crate alloc;
 
@@ -18,10 +18,7 @@ use psp_apis::audio::{
     Volume,
     align_sample_count,
 };
-use psp_apis::fs::{
-    Directory,
-    File,
-};
+use psp_apis::fs::{Directory, File};
 use psp_apis::{kernel, thread};
 use psp_sys::{dprint, sys};
 
@@ -32,23 +29,18 @@ fn play_atrac(file_path: alloc::ffi::CString) -> thread::Thread {
         loop {
             let volume = Volume::from_mono_f32(0.4);
             dprint!("Reserving channel...");
-            let mut channel = AudioChannel::reserve(
-                256,
-                //AudioOutputFrequency::Khz44_1,
-                //2,
-            )
-            .unwrap();
+            let mut channel = AudioChannel::reserve(512).unwrap();
             dprint!("Reserved channel...");
             let mut audio_file =
                 File::open(&file_path, sys::IoOpenFlags::RD_ONLY).unwrap();
             let _ = audio_file.seek_i32(0, sys::IoWhence::Set);
             let mut audio_buffer: Box<[u8]> =
-                unsafe { Box::<[u8]>::new_uninit_slice(1024).assume_init() };
+                unsafe { Box::<[u8]>::new_uninit_slice(2048).assume_init() };
             audio_file.read(&mut audio_buffer).unwrap();
             // FIXME: works in PPSSPP but not on PSP-3000
             dprint!("Reserving ATRAC decoder...");
             let mut audio_handle =
-                unsafe { AtracHandle::new(&mut audio_buffer).unwrap() };
+                AtracHandle::with_data(&mut audio_buffer).unwrap();
             dprint!("Reserved ATRAC decoder...");
             let _ = audio_handle.set_loops(None);
 
@@ -146,7 +138,7 @@ fn psp_main() {
     }
 
     dprint!("unloading modules...");
-    for module in MODULES {
+    for module in MODULES.iter().rev() {
         kernel::utility_unload_module(*module).unwrap();
     }
     dprint!("unloaded modules...");

@@ -91,7 +91,7 @@ psp_extern! {
     ///
     /// # Return Value
     ///
-    /// USB `State`.
+    /// USB [state](`UsbState`).
     pub fn sceUsbGetState() -> UsbState;
 
     #[psp(0x112CC951)]

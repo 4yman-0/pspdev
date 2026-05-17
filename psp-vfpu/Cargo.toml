@@ -1,0 +1,11 @@
+[package]
+name = "psp-vfpu"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+
+[lib]
+crate-type = ["lib"]
+
+[dependencies]
+unstringify = "0.1.4"

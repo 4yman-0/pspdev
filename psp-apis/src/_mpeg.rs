@@ -6,7 +6,7 @@ use crate::error::{
 };
 use psp_sys::sys;
 
-pub struct MpegHandle(sys::SceMpeg);
+pub struct MpegHandle(pub sys::SceMpeg);
 
 impl MpegHandle {
 	pub fn init() -> NativeResult<()> {
@@ -21,7 +21,7 @@ impl MpegHandle {
 	}
 }
 
-pub struct MpegRingbuffer(sys::SceMpegRingBuffer);
+pub struct MpegRingbuffer(pub sys::SceMpegRingBuffer);
 
 impl MpegRingbuffer {
 	pub fn ring_buffer_size(packets: usize) -> usize {
@@ -97,7 +97,6 @@ impl MpegHandle {
 			sys::sceMpegDelete(self.0);
 		};
 	}
-	// streamoffset
 }
 
 impl Drop for MpegHandle {

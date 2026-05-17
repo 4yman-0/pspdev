@@ -30,6 +30,7 @@ pub fn interrupt_enabled() -> bool {
     unsafe { sys::sceKernelIsCpuIntrEnable() == 1 }
 }
 
+/// The time is only returned in seconds.
 pub fn time_since_epoch() -> core::time::Duration {
     let mut secs = 0i32;
     unsafe {
@@ -161,7 +162,7 @@ pub fn largest_free_memory_block() -> usize {
     unsafe { sys::sceKernelMaxFreeMemSize() }
 }
 
-pub fn firmawre_version() -> u32 {
+pub fn firmware_version() -> u32 {
     unsafe { sys::sceKernelDevkitVersion() }
 }
 
@@ -256,7 +257,7 @@ impl ModuleUid {
                 self.uid,
                 core::mem::size_of_val(arg),
                 (&raw mut *arg).cast(),
-                &raw mut start_status,
+                &mut start_status,
                 if let Some(option) = options {
                     (&raw const *option) as *mut _
                 } else {
@@ -277,7 +278,7 @@ impl ModuleUid {
                 self.uid,
                 core::mem::size_of_val(arg),
                 (&raw mut *arg).cast(),
-                &raw mut start_status,
+                &mut start_status,
                 if let Some(option) = options {
                     (&raw const *option) as *mut _
                 } else {
@@ -322,7 +323,7 @@ pub fn stop_unload_self_module<T: ?Sized>(
         sys::sceKernelStopUnloadSelfModule(
             core::mem::size_of_val(arg),
             (&raw mut *arg).cast(),
-            &raw mut start_status,
+            &mut start_status,
             if let Some(option) = options {
                 (&raw const *option) as *mut _
             } else {

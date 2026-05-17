@@ -6,6 +6,7 @@ pub const AUDIO_NEXT_CHANNEL: i32 = -1;
 pub const AUDIO_SAMPLE_MIN: u32 = 64;
 pub const AUDIO_SAMPLE_MAX: u32 = 65472;
 
+#[derive(Clone, Copy, Debug)]
 #[repr(u32)]
 pub enum AudioFormat {
     /// Channel set to stereo output

@@ -4,9 +4,7 @@ use super::{
     texture::Texture,
     vertex::{VertexSize, const_vt_size},
 };
-use crate::error::{
-    NativeError, NativeResult, native_error, /*native_result*/
-};
+use crate::error::{NativeError, NativeResult, native_error, native_result};
 use alloc::boxed::Box;
 use core::ffi::c_void;
 use core::mem::MaybeUninit;
@@ -52,6 +50,7 @@ impl From<NativeError> for GlError {
 use glam::{I8Vec4, Mat3, Mat4, Vec3, Vec4};
 
 #[derive(Clone)]
+#[repr(C)]
 pub struct Mat3By4 {
     pub x_axis: Vec3,
     pub y_axis: Vec3,
@@ -171,14 +170,6 @@ impl Mat3By4 {
     }
 }
 
-#[derive(Clone)]
-pub struct I8Mat4 {
-    pub x: I8Vec4,
-    pub y: I8Vec4,
-    pub z: I8Vec4,
-    pub w: I8Vec4,
-}
-
 impl AsRef<[f32; 12]> for Mat3By4 {
     #[inline]
     fn as_ref(&self) -> &[f32; 12] {
@@ -190,6 +181,22 @@ impl AsMut<[f32; 12]> for Mat3By4 {
     #[inline]
     fn as_mut(&mut self) -> &mut [f32; 12] {
         unsafe { &mut *(&raw mut *self).cast() }
+    }
+}
+
+#[derive(Clone)]
+#[repr(C)]
+pub struct I8Mat4 {
+    pub x_axis: I8Vec4,
+    pub y_axis: I8Vec4,
+    pub z_axis: I8Vec4,
+    pub w_axis: I8Vec4,
+}
+
+impl AsRef<[i8; 16]> for I8Mat4 {
+    #[inline]
+    fn as_ref(&self) -> &[i8; 16] {
+        unsafe { &*(&raw const *self).cast() }
     }
 }
 
@@ -222,6 +229,8 @@ pub struct ListHandle {
     // `list` should not re-allocate while being written to or
     // its address will change silently during rendering
     list: Box<[MaybeUninit<u32>]>,
+    head: usize,
+    id: u32,
 }
 
 impl core::fmt::Debug for ListHandle {
@@ -231,7 +240,7 @@ impl core::fmt::Debug for ListHandle {
 }
 
 impl ListHandle {
-	const GE_LIST_SIZE: usize = 0x4000;
+    const GE_LIST_SIZE: usize = 0x4000;
 
     #[must_use]
     pub fn new() -> Self {
@@ -245,37 +254,55 @@ impl ListHandle {
             );
             let raw = crate::ptr::make_uncached_mut(raw);
             Box::<[MaybeUninit<u32>]>::from_raw({
-                &raw mut *core::slice::from_raw_parts_mut(
+                &mut *core::slice::from_raw_parts_mut(
                     raw.cast(),
                     Self::GE_LIST_SIZE,
                 )
             })
         };
 
-        Self { list }
+        Self {
+            list,
+            head: 0,
+            id: 0,
+        }
     }
     pub fn start(&mut self) {
-        unsafe {
-            sys::sceGuStart(
-                sys::GuContextType::Direct,
-                self.list.as_mut_ptr().cast(),
-            );
-        };
+        let local_list = self.list.as_mut_ptr().cast();
+        self.id = native_result(unsafe {
+            sys::sceGeListEnQueue(
+                local_list,
+                local_list,
+                0, // etc...
+                core::ptr::null_mut(),
+            )
+        })
+        .unwrap();
+        self.head = 0;
     }
     pub fn stall(&mut self) {
-        crate::kernel::data_cache_writeback_invalidate(&self.list);
+        crate::kernel::data_cache_writeback_invalidate(&self.list[..self.head]);
         unsafe {
-            sys::sceGuCommandStall();
+            sys::sceGeListUpdateStallAddr(
+                self.id as i32,
+                (&raw mut self.list[self.head]).cast(),
+            );
         };
     }
     pub fn sync(
         &mut self,
-        sync_mode: sys::GuSyncMode,
-        sync_behavior: sys::GuSyncBehavior,
+        mode: sys::GuSyncMode,
+        behavior: sys::GuSyncBehavior,
     ) {
-        unsafe {
-            sys::sceGuSync(sync_mode, sync_behavior);
-        };
+        match mode {
+            sys::GuSyncMode::Finish => unsafe {
+                sys::sceGeDrawSync(behavior as i32);
+            },
+            sys::GuSyncMode::List => unsafe {
+                sys::sceGeListSync(self.id as i32, behavior as i32);
+            },
+            _ => (),
+        }
     }
     pub fn ge_break(&mut self, reset: bool) -> NativeResult<()> {
         let mut unused_break_param =
@@ -293,20 +320,23 @@ impl ListHandle {
         };
     }
     #[must_use]
-    #[inline]
-    pub fn list_mut(&mut self) -> &mut [u32] {
-        unsafe { self.list.assume_init_mut() }
+    pub fn list(&mut self) -> &[MaybeUninit<u32>] {
+        &self.list
     }
     #[must_use]
-    #[inline]
-    pub fn list(&mut self) -> &[u32] {
-        unsafe { self.list.assume_init_ref() }
+    pub fn list_used(&mut self) -> &[u32] {
+        unsafe { &self.list.assume_init_ref()[..self.head] }
     }
-    #[inline]
     pub fn send(&mut self, id: GeCmd, data: u32) {
-        unsafe {
-            sys::sceGuSendCommandi(id, data.cast_signed());
-        };
+        debug_assert!(
+            data & 0xff00_0000 == 0,
+            "invalid GE command data: ({:X}, {:X})",
+            id as u8,
+            data,
+        );
+        self.list[self.head] =
+            MaybeUninit::<u32>::new(((id as u32) << 24) | data);
+        self.head += 1;
     }
     #[inline]
     pub fn send_parts(&mut self, id: GeCmd, data1: u8, data2: u16) {
@@ -314,9 +344,7 @@ impl ListHandle {
     }
     #[inline]
     pub fn send_float(&mut self, id: GeCmd, data: f32) {
-        unsafe {
-            sys::sceGuSendCommandf(id, data);
-        };
+        self.send(id, data.to_bits() >> 8);
     }
 }
 
@@ -467,19 +495,10 @@ impl Gl {
         ) {
             return Err(GlError::InvalidFramebuffer);
         }
-        /*let (depth1, depth2) = split_address(unsafe {
-            depth
-                .buffer
-                .byte_offset_from_unsigned(sys::sceGeEdramGetAddr())
-        });
+        let (depth1, depth2) = split_address(depth.buffer().as_ptr().addr());
         self.list.send(GeCmd::ZBufPtr, depth1);
-        self.list.send_parts(GeCmd::ZBufWidth, depth2, depth.width);*/
-        unsafe {
-            sys::sceGuDepthBuffer(
-                depth.buffer_mut().as_mut_ptr().cast(),
-                depth.width() as i32,
-            );
-        };
+        self.list
+            .send_parts(GeCmd::ZBufWidth, depth2, depth.width());
         Ok(())
     }
     /// # Safety
@@ -566,10 +585,8 @@ impl Gl {
         {
             return Err(GlError::InvalidDrawRegion);
         }
-        self.list.send(
-            GeCmd::Region1,
-            ((start_y as u32) << 10) | start_x as u32,
-        );
+        self.list
+            .send(GeCmd::Region1, ((start_y as u32) << 10) | start_x as u32);
         let (end_x, end_y) = (end_x as u32 - 1, end_y as u32 - 1); // offset by one
         self.list.send(GeCmd::Region2, (end_y << 10) | end_x);
         Ok(())
@@ -588,10 +605,8 @@ impl Gl {
         {
             return Err(GlError::InvalidScissorRegion);
         }
-        self.list.send(
-            GeCmd::Scissor1,
-            ((start_y as u32) << 10) | start_x as u32,
-        );
+        self.list
+            .send(GeCmd::Scissor1, ((start_y as u32) << 10) | start_x as u32);
         let (end_x, end_y) = (end_x as u32 - 1, end_y as u32 - 1);
         self.list.send(GeCmd::Scissor2, (end_y << 10) | end_x);
         Ok(())
@@ -645,9 +660,9 @@ impl Gl {
         self.list.send_float(GeCmd::Fog2, distance);
     }
     pub fn finish(&mut self) -> NativeResult<()> {
-        unsafe {
-            sys::sceGuFinish();
-        };
+        self.list.send(GeCmd::Finish, 0);
+        self.list.send(GeCmd::End, 0);
+        self.list.stall();
         Ok(())
     }
     /// ## Safety
@@ -676,10 +691,8 @@ impl Gl {
         ) {
             return Err(GlError::VertexTypeContainsIndex);
         }
-        self.list.send(
-            GeCmd::VertexType,
-            vertex_type.bits().cast_unsigned(),
-        );
+        self.list
+            .send(GeCmd::VertexType, vertex_type.bits().cast_unsigned());
 
         let vertices_addr = vertices.as_ptr().addr() as u32;
         // 4 most significant bits for address (28 total)
@@ -707,10 +720,8 @@ impl Gl {
             return Err(GlError::InvalidIndexArraySize);
         }
 
-        self.list.send(
-            GeCmd::VertexType,
-            vertex_type.bits().cast_unsigned(),
-        );
+        self.list
+            .send(GeCmd::VertexType, vertex_type.bits().cast_unsigned());
 
         let indices_addr = indices.as_ptr().addr() as u32;
         self.list.send(GeCmd::Base, (indices_addr >> 8) & 0xf0000);
@@ -737,7 +748,7 @@ impl Gl {
     }
     pub fn end_bounding_box(&mut self) {
         /*let (ptr1, ptr2) = split_address(unsafe {
-            (&raw const self.list.last()).addr()
+            (& self.list.last()).addr()
         });
         self.list.send(GeCmd::Base, ptr2.into());
         self.list.send(GeCmd::BJump, ptr1);*/
@@ -1005,15 +1016,13 @@ impl Gl {
             & (sys::ClearFlags::COLOR_BUFFER_BIT
                 .union(sys::ClearFlags::STENCIL_BUFFER_BIT)
                 .union(sys::ClearFlags::DEPTH_BUFFER_BIT));
-        self.list.send(
-            GeCmd::ClearMode,
-            relevant_flags.bits() << 8 | 0x01,
-        );
+        self.list
+            .send(GeCmd::ClearMode, relevant_flags.bits() << 8 | 0x01);
     }
     pub fn disable_clear(&mut self) {
         self.list.send(GeCmd::ClearMode, 0);
     }
-    pub fn mask_pixel(&mut self, mask: Color32) {
+    pub fn mask_rgba(&mut self, mask: Color32) {
         self.list.send(GeCmd::MaskRgb, mask.as_bgr());
         self.list.send(GeCmd::MaskAlpha, mask.a() as u32);
     }
@@ -1035,10 +1044,8 @@ impl Gl {
         self.list.send(GeCmd::ColorTestmask, mask);
     }
     pub fn color_material(&mut self, components: sys::LightComponent) {
-        self.list.send(
-            GeCmd::MaterialUpdate,
-            components.bits().cast_unsigned(),
-        );
+        self.list
+            .send(GeCmd::MaterialUpdate, components.bits().cast_unsigned());
     }
     pub fn alpha_function(
         &mut self,
@@ -1054,21 +1061,17 @@ impl Gl {
         self.list.send(GeCmd::AmbientAlpha, color.a() as u32);
     }
     pub fn material_emissive(&mut self, color: Color32) {
-        self.list
-            .send(GeCmd::MaterialEmissive, color.as_bgr());
+        self.list.send(GeCmd::MaterialEmissive, color.as_bgr());
     }
     pub fn material_ambient(&mut self, color: Color32) {
-        self.list
-            .send(GeCmd::MaterialAmbient, color.as_bgr());
+        self.list.send(GeCmd::MaterialAmbient, color.as_bgr());
         self.list.send(GeCmd::MaterialAlpha, color.a() as u32);
     }
     pub fn material_diffuse(&mut self, color: Color32) {
-        self.list
-            .send(GeCmd::MaterialDiffuse, color.as_bgr());
+        self.list.send(GeCmd::MaterialDiffuse, color.as_bgr());
     }
     pub fn material_specular(&mut self, color: Color32) {
-        self.list
-            .send(GeCmd::MaterialSpecular, color.as_bgr());
+        self.list.send(GeCmd::MaterialSpecular, color.as_bgr());
     }
     pub fn material_update(&mut self, update: sys::LightComponent) {
         // TODO: use bitflags
@@ -1198,8 +1201,7 @@ impl Gl {
         self.matrix_command_cache.overwrite_projection(matrix);
     }
     pub fn set_bone_matrix(&mut self, index: u8, matrix: &Mat3By4) {
-        self.list
-            .send(GeCmd::BoneMatrixNumber, (index as u32) * 12);
+        self.list.send(GeCmd::BoneMatrixNumber, (index as u32) * 12);
         // 3 * 4 matrix
         for scalar in matrix.as_ref() {
             self.list.send_float(GeCmd::BoneMatrixData, *scalar);
@@ -1303,10 +1305,8 @@ impl Gl {
         mode: sys::TextureMapMode,
         proj_mode: sys::TextureProjectionMapMode,
     ) {
-        self.list.send(
-            GeCmd::TexMapMode,
-            ((proj_mode as u32) << 8) | mode as u32,
-        );
+        self.list
+            .send(GeCmd::TexMapMode, ((proj_mode as u32) << 8) | mode as u32);
     }
     pub fn texture_env_map_matrix(&mut self, u: u32, v: u32) {
         self.list.send(GeCmd::TexShadeLs, (v << 8) | (u & 0x03));
@@ -1355,10 +1355,8 @@ impl Gl {
         u: sys::GuTexWrapMode,
         v: sys::GuTexWrapMode,
     ) {
-        self.list.send(
-            GeCmd::TexWrap,
-            ((v as u32 & 0xff) << 8) | (u as u32 & 0xff),
-        );
+        self.list
+            .send(GeCmd::TexWrap, ((v as u32 & 0xff) << 8) | (u as u32 & 0xff));
     }
     pub fn texture(&mut self, mipmap: sys::MipmapLevel, texture: &Texture) {
         self.texture_format(texture.format());
@@ -1377,35 +1375,37 @@ impl Gl {
         }
     }
 
-    // TODO
-    pub fn set_dither(&mut self, matrix: &I8Mat4) {
+    pub fn set_dither_matrix(&mut self, matrix: &I8Mat4) {
+        // FIXME: This implementation is incorrect because
+        // i8 has a most significant sign bit
+        let mat: &[i8; 16] = matrix.as_ref();
         self.list.send(
             GeCmd::Dith0,
-            ((matrix.x.w as u32) << 12)
-                | ((matrix.x.z as u32) << 8)
-                | ((matrix.x.y as u32) << 4)
-                | (matrix.x.x as u32),
+            ((mat[0].cast_unsigned() as u32) << 12)
+                | ((mat[1].cast_unsigned() as u32) << 8)
+                | ((mat[2].cast_unsigned() as u32) << 4)
+                | (mat[3].cast_unsigned() as u32),
         );
         self.list.send(
             GeCmd::Dith1,
-            ((matrix.y.w as u32) << 12)
-                | ((matrix.y.z as u32) << 8)
-                | ((matrix.y.y as u32) << 4)
-                | (matrix.y.x as u32),
+            ((mat[4].cast_unsigned() as u32) << 12)
+                | ((mat[5].cast_unsigned() as u32) << 8)
+                | ((mat[6].cast_unsigned() as u32) << 4)
+                | (mat[7].cast_unsigned() as u32),
         );
         self.list.send(
             GeCmd::Dith2,
-            ((matrix.z.w as u32) << 12)
-                | ((matrix.z.z as u32) << 8)
-                | ((matrix.z.y as u32) << 4)
-                | (matrix.z.x as u32),
+            ((mat[8].cast_unsigned() as u32) << 12)
+                | ((mat[9].cast_unsigned() as u32) << 8)
+                | ((mat[10].cast_unsigned() as u32) << 4)
+                | (mat[11].cast_unsigned() as u32),
         );
         self.list.send(
             GeCmd::Dith3,
-            ((matrix.w.w as u32) << 12)
-                | ((matrix.w.z as u32) << 8)
-                | ((matrix.w.y as u32) << 4)
-                | (matrix.w.x as u32),
+            ((mat[12].cast_unsigned() as u32) << 12)
+                | ((mat[13].cast_unsigned() as u32) << 8)
+                | ((mat[14].cast_unsigned() as u32) << 4)
+                | (mat[15].cast_unsigned() as u32),
         );
     }
     pub fn patch_division(&mut self, u_divisions: u8, v_divisions: u8) {

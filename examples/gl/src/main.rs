@@ -8,9 +8,7 @@ extern crate alloc;
 mod renderer;
 use renderer::render_tex_aabb;
 
-use psp_apis::fs::{
-    Directory,
-};
+use psp_apis::fs::Directory;
 use psp_apis::gfx::{
     Gfx,
     color::Color32,
@@ -123,9 +121,9 @@ fn psp_main() {
 
     let shading = load_shading(asset!(emulated, "test.psps"));
 
-    let texture = load_texture(asset!(emulated, "test.pspt"));
+    let texture = load_texture(asset!(emulated, "test.pspt")).unwrap();
 
-    let lamp_texture = load_texture(asset!(emulated, "lamp.pspt"));
+    let lamp_texture = load_texture(asset!(emulated, "lamp.pspt")).unwrap();
 
     let mut translation = Vec3::new(0.0, 0.0, -2.0);
     let mut rotation = Vec3::ZERO;

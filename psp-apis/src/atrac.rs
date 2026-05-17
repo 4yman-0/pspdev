@@ -13,13 +13,23 @@ pub struct AtracDecodeInfo {
 pub struct AtracHandle(i32);
 
 impl AtracHandle {
-    /// # Safety
-    /// indirect raw ptr deref
-    pub unsafe fn new(buffer: &mut [u8]) -> NativeResult<Self> {
+    pub fn with_data(buffer: &mut [u8]) -> NativeResult<Self> {
+        // FIXME: This works in PPSSPP but not PSP-3000
         native_result(unsafe {
-            sys::sceAtracSetDataAndGetID(
-                buffer.as_mut_ptr().cast(),
+            sys::sceAtracSetDataAndGetID(buffer.as_mut_ptr(), buffer.len())
+        })
+        .map(|id| Self(id as i32))
+    }
+    pub fn with_halfway_data(
+        buffer: &mut [u8],
+        complete: usize,
+    ) -> NativeResult<Self> {
+        // FIXME: This works in PPSSPP but not PSP-3000
+        native_result(unsafe {
+            sys::sceAtracSetHalfwayBufferAndGetID(
+                buffer.as_mut_ptr(),
                 buffer.len(),
+                complete,
             )
         })
         .map(|id| Self(id as i32))
@@ -35,10 +45,10 @@ impl AtracHandle {
         native_error(unsafe {
             sys::sceAtracDecodeData(
                 self.0,
-                output.as_mut_ptr().cast(),
-                &raw mut sample_count,
-                &raw mut is_end,
-                &raw mut remaining,
+                output.as_mut_ptr(),
+                &mut sample_count,
+                &mut is_end,
+                &mut remaining,
             )
         })?;
         Ok(AtracDecodeInfo {
@@ -50,7 +60,7 @@ impl AtracHandle {
     pub fn remaining_frames(&self) -> NativeResult<Option<usize>> {
         let mut remaining_frames = 0i32;
         native_error(unsafe {
-            sys::sceAtracGetRemainFrame(self.0, &raw mut remaining_frames)
+            sys::sceAtracGetRemainFrame(self.0, &mut remaining_frames)
         })?;
         Ok(if remaining_frames == -1 {
             None
@@ -68,9 +78,9 @@ impl AtracHandle {
         native_result(unsafe {
             sys::sceAtracGetStreamDataInfo(
                 self.0,
-                &raw mut destination,
-                &raw mut to_write,
-                &raw mut source_position,
+                &mut destination,
+                &mut to_write,
+                &mut source_position,
             )
         })
         .map(|_| {
@@ -79,10 +89,10 @@ impl AtracHandle {
                     unsafe {
                         core::slice::from_raw_parts_mut(
                             destination, /*.offset(source_position as isize)*/
-                            to_write as usize,
+                            to_write,
                         )
                     },
-                    source_position as usize,
+                    source_position,
                 ))
             } else {
                 None
@@ -92,15 +102,13 @@ impl AtracHandle {
 
     pub fn notify_data_add(&mut self, bytes_to_add: usize) -> NativeResult<()> {
         native_error(unsafe {
-            sys::sceAtracAddStreamData(self.0, bytes_to_add as u32)
+            sys::sceAtracAddStreamData(self.0, bytes_to_add)
         })
     }
 
     pub fn bitrate(&self) -> NativeResult<u32> {
         let mut bitrate = 0i32;
-        native_error(unsafe {
-            sys::sceAtracGetBitrate(self.0, &raw mut bitrate)
-        })?;
+        native_error(unsafe { sys::sceAtracGetBitrate(self.0, &mut bitrate) })?;
         Ok(bitrate as u32)
     }
 
@@ -120,7 +128,7 @@ impl AtracHandle {
     pub fn next_sample_count(&self) -> NativeResult<usize> {
         let mut sample_count = 0i32;
         native_error(unsafe {
-            sys::sceAtracGetNextSample(self.0, &raw mut sample_count)
+            sys::sceAtracGetNextSample(self.0, &mut sample_count)
         })?;
         Ok(sample_count as usize)
     }
@@ -128,9 +136,17 @@ impl AtracHandle {
     pub fn max_sample_count(&self) -> NativeResult<usize> {
         let mut sample_count = 0i32;
         native_error(unsafe {
-            sys::sceAtracGetMaxSample(self.0, &raw mut sample_count)
+            sys::sceAtracGetMaxSample(self.0, &mut sample_count)
         })?;
         Ok(sample_count as usize)
+    }
+
+    pub fn internal_error(&self) -> NativeResult<()> {
+        let mut error = 0_i32;
+        native_result(unsafe {
+            sys::sceAtracGetInternalErrorInfo(self.0, &mut error)
+        })?;
+        native_error(error)
     }
 
     // TODO: etc

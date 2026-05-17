@@ -15,7 +15,7 @@ use glam::{EulerRot, Mat3, Mat4, Vec3};
 use psp_sys::{dprint, enable_home_button, sys};
 
 mod loader;
-use loader::{load_texture, load_model};
+use loader::{load_model, load_texture};
 
 mod frame_clock;
 use frame_clock::FrameClock;
@@ -58,11 +58,10 @@ fn psp_main() {
 
     warn_unwrap(gfx.start_frame_with(|frame| {
         let gl = frame.gl_mut();
-
-		gl.texture_filter(
-			sys::TextureFilter::Linear,
-			sys::TextureFilter::Linear,
-		);
+        gl.texture_filter(
+            sys::TextureFilter::Linear,
+            sys::TextureFilter::Linear,
+        );
 
         let perspective =
             Mat4::perspective_rh_gl(deg_to_rad(90.0), 16.0 / 9.0, 1.0, -1.0);
@@ -77,10 +76,10 @@ fn psp_main() {
         dprint!("Real PSP!");
     }
 
-	let cube = load_model(asset!(emulated, "cube.pspm"));
-    let texture = load_texture(asset!(emulated, "cube.pspt"));
+    let cube = load_model(asset!(emulated, "cube.pspm"));
+    let texture = load_texture(asset!(emulated, "cube.pspt")).unwrap();
 
-	let mut frame_clock = FrameClock::default();
+    let mut frame_clock = FrameClock::default();
     let mut rotation = Vec3::ZERO;
 
     loop {
@@ -111,7 +110,7 @@ fn psp_main() {
                 gl.set_matrix(MatrixMode::View, &view)
             }
 
-			gl.clear_color(Color32::WHITE);
+            gl.clear_color(Color32::WHITE);
             gl.set_matrix(
                 MatrixMode::Model,
                 &Mat3By4::from_mat3_vec3(

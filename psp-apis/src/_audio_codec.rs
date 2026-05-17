@@ -6,7 +6,6 @@ use crate::error::{
 };
 use core::mem::size_of_val;
 use psp_sys::sys;
-//use alloc::boxed::Box;
 
 pub use sys::AudioCodec as AudioCodecType;
 
@@ -59,7 +58,7 @@ impl AudioCodec {
     pub fn check_needed_memory(&self) -> NativeResult<()> {
         native_error(unsafe {
             sys::sceAudiocodecCheckNeedMem(
-                (&raw const self.codec) as *mut _,
+                (& self.codec) as *mut _,
                 self.codec_type as i32,
             )
         })
@@ -71,5 +70,3 @@ impl Drop for AudioCodec {
         let _ = self.close_non_consuming();
     }
 }
-
-//unsafe impl core::marker::Send for AudioCodec {}

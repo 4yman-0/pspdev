@@ -2,6 +2,8 @@
 //!
 //! This is similar (but not identical) to the pspvfpu library from PSPSDK.
 
+use psp_vfpu::vfpu_asm;
+
 type Mat4 = [[f32; 4]; 4];
 const MAT4_ZERO: [[f32; 4]; 4] = [[0.0; 4]; 4];
 

@@ -14,7 +14,7 @@ pub mod vertex;
 pub mod vram_alloc;
 
 use gl::{Gl, I8Mat4, Mat3By4};
-use texture::Texture;
+use texture::{Texture, TextureResult};
 
 pub struct Gfx {
     gl: Gl,
@@ -30,7 +30,9 @@ impl Gfx {
     pub fn init_default() -> gl::GlResult<Self> {
         Self::init(sys::TexturePixelFormat::Psm5551)?
             .depth_test()
+            .unwrap()
             .double_buffering()
+            .unwrap()
             .culling()
             .scissor_test()?
             .clip_planes()
@@ -44,14 +46,13 @@ impl Gfx {
         gl.scissor_region(0, 0, size.0, size.1)?;
         Ok(self)
     }
-    #[must_use]
-    pub fn depth_test(mut self) -> Self {
+    pub fn depth_test(mut self) -> TextureResult<Self> {
         let depth_buffer = Texture::allocate(
             Self::BUFFER_WIDTH,
             Self::WIDTH,
             sys::TexturePixelFormat::Psm4444,
             false,
-        );
+        )?;
         self.depth_buffer = Some(depth_buffer);
         self.gl.depth_range(u16::MAX, 0, 0);
         self.gl.depth_test_function(sys::DepthFunc::GreaterOrEqual);
@@ -61,15 +62,14 @@ impl Gfx {
                 .set_depth_buffer(self.depth_buffer.as_mut().unwrap())
                 .unwrap();
         };
-        self
+        Ok(self)
     }
-    #[must_use]
-    pub fn double_buffering(mut self) -> Self {
+    pub fn double_buffering(mut self) -> TextureResult<Self> {
         let format = self.frame_buffer.format();
         let double_buffer =
-            Texture::allocate(Self::BUFFER_WIDTH, Self::WIDTH, format, false);
+            Texture::allocate(Self::BUFFER_WIDTH, Self::WIDTH, format, false)?;
         self.double_buffer = Some((double_buffer, false));
-        self
+        Ok(self)
     }
     #[must_use]
     pub fn culling(mut self) -> Self {
@@ -111,10 +111,11 @@ impl Gfx {
             Self::HEIGHT,
             frame_buffer_format,
             false,
-        );
-        unsafe {
-            sys::sceGuInit();
-        };
+        )
+        .unwrap();
+        //unsafe {
+        //    sys::sceGuInit();
+        //};
         let mut gl = Gl::new();
         gl.list_mut().start();
         unsafe {
@@ -138,11 +139,11 @@ impl Gfx {
             gl.morph_weight(bone_index, 0.0);
         }
 
-        gl.set_dither(&I8Mat4 {
-            x: I8Vec4::new(-4, 0, -3, 1),
-            y: I8Vec4::new(2, -2, 3, -1),
-            z: I8Vec4::new(-3, 1, -4, 0),
-            w: I8Vec4::new(3, -1, 2, -2),
+        gl.set_dither_matrix(&I8Mat4 {
+            x_axis: I8Vec4::new(-4, 0, -3, 1),
+            y_axis: I8Vec4::new(2, -2, 3, -1),
+            z_axis: I8Vec4::new(-3, 1, -4, 0),
+            w_axis: I8Vec4::new(3, -1, 2, -2),
         });
         gl.shading_model(sys::ShadingModel::Smooth);
         gl.patch_division(16, 16);

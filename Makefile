@@ -31,7 +31,7 @@ run_release: $(EBOOT_RELEASE)
 	$(PSPEMU) $(PSPEMUFLAGS) ./$<
 
 compile:
-	cargo psp -p $(BINARY_NAME) 
+	cargo psp -p $(BINARY_NAME)
 
 compile_release:
 	cargo psp -p $(BINARY_NAME) --release

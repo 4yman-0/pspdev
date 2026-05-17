@@ -28,10 +28,8 @@ impl Mp3Handle {
             unk1: 0,
             unk2: 0,
         };
-        native_result(unsafe {
-            sys::sceMp3ReserveMp3Handle(&raw mut init_args)
-        })
-        .map(|id| Self(sys::Mp3Handle(id as i32)))
+        native_result(unsafe { sys::sceMp3ReserveMp3Handle(&mut init_args) })
+            .map(|id| Self(sys::Mp3Handle(id as i32)))
     }
 
     pub fn close_non_consuming(&mut self) -> NativeResult<()> {
@@ -51,12 +49,13 @@ impl Mp3Handle {
 
     pub fn decode(&mut self) -> NativeResult<&mut [Sample]> {
         let mut destination = core::ptr::null_mut();
-        native_result(unsafe {
-            sys::sceMp3Decode(self.0, &raw mut destination)
-        })
-        .map(|decoded_bytes| unsafe {
-            core::slice::from_raw_parts_mut(destination, decoded_bytes as usize)
-        })
+        native_result(unsafe { sys::sceMp3Decode(self.0, &mut destination) })
+            .map(|decoded_bytes| unsafe {
+                core::slice::from_raw_parts_mut(
+                    destination,
+                    decoded_bytes as usize,
+                )
+            })
     }
 
     pub fn start_data_add(&mut self) -> NativeResult<Option<&mut [u8]>> {
@@ -66,9 +65,9 @@ impl Mp3Handle {
         native_result(unsafe {
             sys::sceMp3GetInfoToAddStreamData(
                 self.0,
-                &raw mut destination,
-                &raw mut to_write,
-                &raw mut source_position,
+                &mut destination,
+                &mut to_write,
+                &mut source_position,
             )
         })
         .map(|_| {

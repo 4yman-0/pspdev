@@ -3,31 +3,31 @@
 use crate::error::{NativeResult, native_error, native_result};
 use psp_sys::sys;
 
-pub fn is_plugged_in() -> NativeResult<bool> {
+pub fn power_online() -> NativeResult<bool> {
     native_result(unsafe { sys::scePowerIsPowerOnline() })
         .map(|plugged_in| plugged_in == 1)
 }
 
-pub fn battery_is_present() -> NativeResult<bool> {
+pub fn battery_present() -> NativeResult<bool> {
     native_result(unsafe { sys::scePowerIsBatteryExist() })
         .map(|battery_present| battery_present == 1)
 }
 
-pub fn battery_is_charging() -> NativeResult<bool> {
+pub fn battery_charging() -> NativeResult<bool> {
     native_result(unsafe { sys::scePowerIsBatteryCharging() })
         .map(|charging| charging == 1)
 }
 
 /// Get the status of the battery charging
-pub fn battery_charging_status() -> NativeResult<u32> {
+pub fn battery_charge_status() -> NativeResult<u32> {
     native_result(unsafe { sys::scePowerGetBatteryChargingStatus() })
 }
 
-pub fn battery_is_low() -> NativeResult<bool> {
+pub fn battery_low() -> NativeResult<bool> {
     native_result(unsafe { sys::scePowerIsLowBattery() }).map(|low| low == 1)
 }
 
-pub fn battery_life_percentage() -> NativeResult<u8> {
+pub fn battery_life_percent() -> NativeResult<u8> {
     native_result(unsafe { sys::scePowerGetBatteryLifePercent() })
         .map(|percent| percent as u8)
 }
@@ -158,11 +158,11 @@ pub fn unlock_power_switch() -> NativeResult<()> {
 }
 
 /// Generate a power tick, preventing unit from powering off and turning off
-/// display.
+/// display because of idling.
 ///
 /// # Parameters
 ///
-/// - `type_`: type of power tick to generate
+/// - `tick`: type of power tick to generate
 ///
 /// # Return Value
 ///

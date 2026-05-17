@@ -7,7 +7,7 @@ extern crate alloc;
 
 use psp_apis::fs::{
     Directory,
-	//File,
+    //File,
 };
 use psp_apis::gfx::{
     Gfx,
@@ -114,7 +114,7 @@ fn psp_main() {
     let mut gfx = Gfx::init_default().unwrap();
     warn_unwrap(gfx.start_frame_with(|frame| {
         let gl = frame.gl_mut();
-        let mut perspective = Mat4::perspective_rh_gl(
+        let /*mut*/ perspective = Mat4::perspective_rh_gl(
             deg_to_rad(90.0),
             16.0 / 9.0,
             1.0,
@@ -122,10 +122,10 @@ fn psp_main() {
         );
         gl.overwrite_projection_matrix(perspective);
 
-	    gl.texture_filter(
-	        sys::TextureFilter::Linear,
-	        sys::TextureFilter::Linear,
-	    );
+        gl.texture_filter(
+            sys::TextureFilter::Linear,
+            sys::TextureFilter::Linear,
+        );
 
         gl.shading_model(sys::ShadingModel::Flat);
         Ok(())
@@ -141,7 +141,8 @@ fn psp_main() {
     let mut frame_clock = FrameClock::default();
 
     let mut texture =
-        Texture::allocate(64, 32, sys::TexturePixelFormat::Psm5650, false);
+        Texture::allocate(64, 32, sys::TexturePixelFormat::Psm5650, false)
+            .unwrap();
 
     let mut yaw = 0_f32;
 
@@ -173,8 +174,7 @@ fn psp_main() {
             gl.set_matrix(
                 MatrixMode::Model,
                 &Mat3By4::from_mat3_vec3(
-                    Mat3::from_rotation_y(yaw)
-                     * (Mat3::IDENTITY * 2.0),
+                    Mat3::from_rotation_y(yaw) * (Mat3::IDENTITY * 2.0),
                     Vec3::new(0.0, 0.3, -1.5),
                 ),
             );

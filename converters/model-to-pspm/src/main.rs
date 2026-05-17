@@ -34,9 +34,9 @@ struct Cli {
 
 #[derive(Clone, Copy, ValueEnum)]
 enum VertexAttrType {
-    F32,
     I8,
     I16,
+    F32,
 }
 
 #[derive(Clone, Copy, ValueEnum)]

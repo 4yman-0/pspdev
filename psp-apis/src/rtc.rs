@@ -17,7 +17,10 @@ pub fn current_clock(
 ) -> NativeResult<sys::ScePspDateTime> {
     let mut date_time = MaybeUninit::<sys::ScePspDateTime>::uninit();
     native_error(unsafe {
-        sys::sceRtcGetCurrentClock(date_time.assume_init_mut(), timezone_minutes)
+        sys::sceRtcGetCurrentClock(
+            date_time.assume_init_mut(),
+            timezone_minutes,
+        )
     })?;
     Ok(unsafe { date_time.assume_init() })
 }
@@ -42,9 +45,9 @@ pub fn is_leap_year(year: i32) -> bool {
     unsafe { sys::sceRtcIsLeapYear(year) == 1 }
 }
 
-pub fn days_in_month(year: i32, month: i32) -> u32 {
+pub fn days_in_month(year: i32, month: u8) -> u32 {
     // error (?)
-    unsafe { sys::sceRtcGetDaysInMonth(year, month) as u32 }
+    unsafe { sys::sceRtcGetDaysInMonth(year, month as i32) as u32 }
 }
 
 numeric_enum_macro::numeric_enum! {
@@ -52,50 +55,43 @@ numeric_enum_macro::numeric_enum! {
     #[repr(u8)]
     #[derive(Clone, Copy, Debug)]
     pub enum DayOfWeek {
-        Monday = 0,
-        Tuesday = 1,
-        Wednesday = 2,
-        Thursday = 3,
-        Friday = 4,
-        Saturday = 5,
-        Sunday = 6,
+        Monday = 1,
+        Tuesday = 2,
+        Wednesday = 3,
+        Thursday = 4,
+        Friday = 5,
+        Saturday = 6,
+        Sunday = 7,
     }
 }
 
-pub fn day_of_week(year: i32, month: i32, day: i32) -> DayOfWeek {
+pub fn day_of_week(year: i32, month: u8, day: u8) -> DayOfWeek {
     unsafe {
-        let result = sys::sceRtcGetDayOfWeek(year, month, day) as u8;
+        let result =
+            sys::sceRtcGetDayOfWeek(year, month as i32, day as i32) as u8;
         result.try_into().unwrap()
     }
 }
 
 pub fn check_date_time(date_time: &sys::ScePspDateTime) -> NativeResult<()> {
-	native_error(unsafe {
-		sys::sceRtcCheckValid(date_time)
-	})
+    native_error(unsafe { sys::sceRtcCheckValid(date_time) })
 }
 
 pub fn date_time_from_ticks(ticks: u64) -> NativeResult<sys::ScePspDateTime> {
     let mut date_time = MaybeUninit::<sys::ScePspDateTime>::uninit();
-	native_error(unsafe {
-		sys::sceRtcSetTick(
-			date_time.assume_init_mut(),
-			&ticks
-		)
-	})?;
+    native_error(unsafe {
+        sys::sceRtcSetTick(date_time.assume_init_mut(), &ticks)
+    })?;
     Ok(unsafe { date_time.assume_init() })
 }
 
-pub fn ticks_from_date_time(date_time: &sys::ScePspDateTime) -> NativeResult<u64> {
+pub fn ticks_from_date_time(
+    date_time: &sys::ScePspDateTime,
+) -> NativeResult<u64> {
     let mut ticks = 0_u64;
-	native_error(unsafe {
-		sys::sceRtcGetTick(
-			date_time,
-			&mut ticks
-		)
-	})?;
+    native_error(unsafe { sys::sceRtcGetTick(date_time, &mut ticks) })?;
     Ok(ticks)
 }
 
-// TODO: do we have to implement sceRtc(Compare|Add)Tick[s]...?
+// TODO: Do we have to implement sceRtc(Compare|Add)Tick[s]...?
 // TODO: Do we have to implement parsers (PspDateTime -> string)?

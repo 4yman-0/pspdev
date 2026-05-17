@@ -109,6 +109,9 @@ fn aeh(layout: Layout) -> ! {
     panic!("Allocator error: {layout:?}")
 }
 
+const WORD_SIZE: usize = core::mem::size_of::<usize>();
+const WORD_SIZE_SIGNED: isize = WORD_SIZE as isize;
+
 #[unsafe(no_mangle)]
 unsafe extern "C" fn memset(ptr: *mut u8, value: u32, num: usize) -> *mut u8 {
     let mut i = 0;
@@ -129,97 +132,29 @@ unsafe extern "C" fn memcpy(
     src: *const u8,
     num: isize,
 ) -> *mut u8 {
-    use core::slice;
     let num = num as usize;
 
-    let src = unsafe { slice::from_raw_parts(src, num) };
-    let dst = unsafe { slice::from_raw_parts_mut(dst, num) };
-
-    // simple implementation
-    if num < 64 {
-        for i in 0..dst.len() {
-            dst[i] = src[i];
-        }
-        return dst.as_mut_ptr();
-    }
-
-    // 4-byte copy
     let mut i = 0usize;
-    while i < src.len() - 4 {
-        let src_p = (&raw const src[i]) as *const usize;
-        let dst_p = (&raw mut dst[i]) as *mut usize;
-        unsafe {
-            dst_p.write_unaligned(src_p.read_unaligned());
-        };
-        i += 4;
+    if num >= WORD_SIZE {
+        // Machine word copy
+        while i < num - WORD_SIZE {
+            unsafe {
+                let src: *const usize = src.add(i).cast();
+                let dst: *mut usize = dst.add(i).cast();
+                dst.write_unaligned(src.read_unaligned());
+            };
+            i += WORD_SIZE;
+        }
     }
 
-    while i < src.len() - 2 {
-        let src_p = (&raw const src[i]) as *const u16;
-        let dst_p = (&raw mut dst[i]) as *mut u16;
+    while i < num {
         unsafe {
-            dst_p.write_unaligned(src_p.read_unaligned());
+            *dst.add(i) = *src.add(i);
         };
-        i += 29;
-    }
-
-    while i < src.len() {
-        dst[i] = src[i];
         i += 1;
     }
 
-    dst.as_mut_ptr()
-}
-
-#[unsafe(no_mangle)]
-unsafe extern "C" fn memcmp(
-    ptr1: *const u8,
-    ptr2: *const u8,
-    num: usize,
-) -> i32 {
-    use core::slice;
-
-    let slice1 = unsafe { slice::from_raw_parts(ptr1, num) };
-    let slice2 = unsafe { slice::from_raw_parts(ptr2, num) };
-
-    // simple implementation
-    if num < 64 {
-        for i in 0..num {
-            if slice1[i] != slice2[i] {
-                return i32::from(slice1[i]) - i32::from(slice2[i]);
-            }
-        }
-        return 0;
-    }
-
-    // 4-byte compare
-    let mut i = 0usize;
-    while i < slice1.len() - 4 {
-        let ptr1 = (&raw const slice1[i]) as *const usize;
-        let ptr2 = (&raw const slice2[i]) as *const usize;
-        if unsafe { ptr1.read_unaligned() != ptr2.read_unaligned() } {
-            break;
-        }
-        i += 4;
-    }
-
-    while i < slice1.len() - 2 {
-        let ptr1 = (&raw const slice1[i]) as *const u16;
-        let ptr2 = (&raw const slice2[i]) as *const u16;
-        if unsafe { ptr1.read_unaligned() != ptr2.read_unaligned() } {
-            break;
-        }
-        i += 2;
-    }
-
-    while i < slice1.len() {
-        if slice1[i] != slice2[i] {
-            return i32::from(slice1[i]) - i32::from(slice2[i]);
-        }
-        i += 1;
-    }
-
-    0
+    dst
 }
 
 #[unsafe(no_mangle)]
@@ -228,22 +163,78 @@ unsafe extern "C" fn memmove(
     src: *const u8,
     num: isize,
 ) -> *mut u8 {
-    if (dst as *const u8) < src {
-        unsafe {
-            memcpy(dst, src, num);
-        };
-    } else {
-        let mut i = num - 1;
+    if dst.addr() < src.addr() {
+        let num = num as usize;
 
-        while i >= 0 {
+        let mut i = 0usize;
+        if num >= WORD_SIZE {
+            // Machine word move
+            while i < num - WORD_SIZE {
+                unsafe {
+                    let src: *const usize = src.add(i).cast();
+                    let dst: *mut usize = dst.add(i).cast();
+                    dst.write_unaligned(src.read_unaligned());
+                };
+                i += WORD_SIZE;
+            }
+        }
+
+        while i < num {
+            unsafe {
+                *dst.add(i) = *src.add(i);
+            };
+            i += 1;
+        }
+    } else {
+        let mut i = num;
+        // Machine word move
+        while i >= WORD_SIZE_SIGNED {
+            unsafe {
+                let src: *const usize = src.offset(i).cast();
+                let dst: *mut usize = dst.offset(i).cast();
+                dst.write_unaligned(src.read_unaligned());
+            };
+            i -= WORD_SIZE_SIGNED;
+        }
+
+        while i > 0 {
             unsafe {
                 *dst.offset(i) = *src.offset(i);
-            }
+            };
             i -= 1;
         }
     }
 
     dst
+}
+
+#[unsafe(no_mangle)]
+unsafe extern "C" fn memcmp(lhs: *const u8, rhs: *const u8, num: usize) -> i32 {
+    let mut i = 0usize;
+    if num >= WORD_SIZE {
+        // Machine word compare
+        while i < num - WORD_SIZE {
+            unsafe {
+                let lhs: *const usize = lhs.add(i).cast();
+                let rhs: *const usize = rhs.add(i).cast();
+                if lhs.read_unaligned() != rhs.read_unaligned() {
+                    break;
+                }
+            };
+            i += WORD_SIZE;
+        }
+    }
+
+    while i < num {
+        let a = unsafe { *lhs.add(i) };
+        let b = unsafe { *rhs.add(i) };
+        if a != b {
+            return i32::from(a) - i32::from(b);
+        }
+        i += 1;
+    }
+
+    0
 }
 
 #[unsafe(no_mangle)]

@@ -109,8 +109,12 @@ pub use psmf::*;
 
 //mod sircs;
 //pub use sircs::*;
-//mod codec;
-//pub use codec::*;
+
+mod dmac;
+pub use dmac::*;
+
+mod codec;
+pub use codec::*;
 
 // TODO: Add kernel module support to this crate.
 // pub mod nand;

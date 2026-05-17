@@ -1,17 +1,16 @@
 use crate::eabi::i5;
-use core::ffi::c_void;
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct Atrac3BufferInfo {
     pub puc_write_position_first_buf: *mut u8,
-    pub ui_writable_byte_first_buf: u32,
-    pub ui_min_write_byte_first_buf: u32,
-    pub ui_read_position_first_buf: u32,
+    pub ui_writable_len_first_buf: usize,
+    pub ui_min_write_len_first_buf: usize,
+    pub ui_read_position_first_buf: usize,
     pub puc_write_position_second_buf: *mut u8,
-    pub ui_writable_byte_second_buf: u32,
-    pub ui_min_write_byte_second_buf: u32,
-    pub ui_read_position_second_buf: u32,
+    pub ui_writable_len_second_buf: usize,
+    pub ui_min_write_len_second_buf: usize,
+    pub ui_read_position_second_buf: usize,
 }
 
 psp_extern! {
@@ -20,7 +19,7 @@ psp_extern! {
     #![version = (0x00, 0x00)]
 
     #[psp(0x780F88D1)]
-    pub fn sceAtracGetAtracID(ui_codec_type: u32) -> i32;
+    pub fn sceAtracGetAtracID(codec_type: crate::sys::AudioCodec) -> i32;
 
     #[psp(0x7A20E7AF)]
     /// Creates a new Atrac ID from the specified data
@@ -34,7 +33,7 @@ psp_extern! {
     ///
     /// the new atrac ID, or < 0 on error
     pub fn sceAtracSetDataAndGetID(
-        buf: *mut c_void,
+        buf: *mut u8,
         bufsize: usize,
     ) -> i32;
 
@@ -56,7 +55,7 @@ psp_extern! {
     /// < 0 on error, otherwise 0
     pub fn sceAtracDecodeData(
         atrac_id: i32,
-        out_samples: *mut u16,
+        out_samples: *mut i16,
         out_n: *mut i32,
         out_end: *mut i32,
         out_remain_frame: *mut i32,
@@ -93,8 +92,8 @@ psp_extern! {
     pub fn sceAtracGetStreamDataInfo(
         atrac_id: i32,
         write_pointer: *mut *mut u8,
-        available_bytes: *mut u32,
-        read_offset: *mut u32,
+        available_bytes: *mut usize,
+        read_offset: *mut usize,
     ) -> i32;
 
     #[psp(0x7DB31251)]
@@ -108,7 +107,7 @@ psp_extern! {
     /// < 0 on error, otherwise 0
     pub fn sceAtracAddStreamData(
         atrac_id: i32,
-        bytes_to_add: u32,
+        bytes_to_add: usize,
     ) -> i32;
 
     #[psp(0xA554A158)]
@@ -186,90 +185,90 @@ psp_extern! {
     ///
     pub fn sceAtracGetMaxSample(
         atrac_id: i32,
-        out_max: *mut i32,
+        out_max_samples: *mut i32,
     ) -> i32;
 
     #[psp(0xCA3CA3D2)]
     pub fn sceAtracGetBufferInfoForReseting(
         atrac_id: i32,
-        ui_sample: u32,
-        pbuffer_info: *mut Atrac3BufferInfo,
+        sample_count: usize,
+        buffer_info: *mut Atrac3BufferInfo,
     ) -> i32;
 
     #[psp(0x31668BAA)]
     pub fn sceAtracGetChannel(
         atrac_id: i32,
-        pui_channel: *mut u32,
+        channel: *mut u32,
     ) -> i32;
 
     #[psp(0xE88F759B)]
     pub fn sceAtracGetInternalErrorInfo(
         atrac_id: i32,
-        pi_result: *mut i32,
+        result: *mut i32,
     ) -> i32;
 
     #[psp(0xFAA4F89B)]
     pub fn sceAtracGetLoopStatus(
         atrac_id: i32,
-        pi_loop_num: *mut i32,
-        pui_loop_status: *mut u32,
+        loops_count: *mut i32,
+        loop_status: *mut u32,
     ) -> i32;
 
     #[psp(0xE23E3A35)]
     pub fn sceAtracGetNextDecodePosition(
         atrac_id: i32,
-        pui_sample_position: *mut u32,
+        decode_position: *mut u32,
     ) -> i32;
 
     #[psp(0x83E85EA0)]
     pub fn sceAtracGetSecondBufferInfo(
         atrac_id: i32,
-        pui_position: *mut u32,
-        pui_data_byte: *mut u32,
+        position: *mut usize,
+        data_len: *mut usize,
     ) -> i32;
 
     #[psp(0xA2BBA8BE)]
     pub fn sceAtracGetSoundSample(
         atrac_id: i32,
-        pi_end_sample: *mut i32,
-        pi_loop_start_sample: *mut i32,
-        pi_loop_end_sample: *mut i32,
+        end_sample: *mut i32,
+        loop_start_sample: *mut i32,
+        loop_end_sample: *mut i32,
     ) -> i32;
 
     #[psp(0x644E5607)]
     pub fn sceAtracResetPlayPosition(
         atrac_id: i32,
-        ui_sample: u32,
-        ui_write_byte_first_buf: u32,
-        ui_write_byte_second_buf: u32,
+        sample_count: usize,
+        write_len_first_buf: usize,
+        write_len_second_buf: usize,
     ) -> i32;
 
     #[psp(0x0E2A73AB)]
     pub fn sceAtracSetData(
         atrac_id: i32,
-        puc_buffer_addr: *mut u8,
-        ui_buffer_byte: u32,
+        buffer_addr: *mut u8,
+        buffer_size: usize,
     ) -> i32;
 
     #[psp(0x3F6E26B5)]
     pub fn sceAtracSetHalfwayBuffer(
         atrac_id: i32,
-        puc_buffer_addr: *mut u8,
-        ui_read_byte: u32,
-        ui_buffer_byte: u32,
+        buffer_addr: *mut u8,
+        read_len: usize,
+        buffer_size: usize,
     ) -> i32;
 
     #[psp(0x0FAE370E)]
     pub fn sceAtracSetHalfwayBufferAndGetID(
-        puc_buffer_addr: *mut u8,
-        ui_read_byte: u32,
-        ui_buffer_byte: u32,
+        buffer_addr: *mut u8,
+        read_len: usize,
+        buffer_len: usize,
     ) -> i32;
 
     #[psp(0x83BF7AFD)]
     pub fn sceAtracSetSecondBuffer(
         atrac_id: i32,
-        puc_second_buffer_addr: *mut u8,
-        ui_second_buffer_byte: u32,
+        second_buffer_addr: *mut u8,
+        second_buffer_len: usize,
     ) -> i32;
 }

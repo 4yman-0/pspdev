@@ -76,22 +76,6 @@ pub const fn align_sample_count(sample_count: u32) -> u32 {
 }
 
 #[derive(Clone, Copy, Debug)]
-/// Same as [`sys::AudioFormat`], but with more trait implementation
-pub enum AudioFormat {
-    Mono,
-    Stereo,
-}
-
-impl From<AudioFormat> for sys::AudioFormat {
-    fn from(from: AudioFormat) -> Self {
-        match from {
-            AudioFormat::Mono => Self::Mono,
-            AudioFormat::Stereo => Self::Stereo,
-        }
-    }
-}
-
-#[derive(Clone, Copy, Debug)]
 /// Same as [`sys::AudioOutputFrequency`], but with more trait implementation
 pub enum AudioOutputFrequency {
     Khz48 = 48_000,
@@ -128,7 +112,7 @@ impl From<AudioOutputFrequency> for sys::AudioOutputFrequency {
 pub struct AudioChannel {
     id: u32,
     sample_count: u32,
-    format: AudioFormat,
+    format: sys::AudioFormat,
 }
 
 impl AudioChannel {
@@ -140,10 +124,10 @@ impl AudioChannel {
     fn reserve_raw(
         channel: i32,
         sample_count: u32,
-        format: AudioFormat,
+        format: sys::AudioFormat,
     ) -> NativeResult<Self> {
         let id = native_result(unsafe {
-            sys::sceAudioChReserve(channel, sample_count as i32, format.into())
+            sys::sceAudioChReserve(channel, sample_count as i32, format)
         })?;
         Ok(Self {
             id,
@@ -154,13 +138,13 @@ impl AudioChannel {
     pub fn reserve(
         channel: u8,
         sample_count: u32,
-        format: AudioFormat,
+        format: sys::AudioFormat,
     ) -> NativeResult<Self> {
         Self::reserve_raw(i32::from(channel), sample_count, format)
     }
     pub fn reserve_next(
         sample_count: u32,
-        format: AudioFormat,
+        format: sys::AudioFormat,
     ) -> NativeResult<Self> {
         Self::reserve_raw(sys::AUDIO_NEXT_CHANNEL, sample_count, format)
     }
@@ -264,21 +248,20 @@ impl AudioChannel {
     pub fn sample_buffer_size(&self) -> usize {
         let mono_size = self.sample_count() as usize * size_of::<Sample>();
         match self.format() {
-            AudioFormat::Mono => mono_size,
-            AudioFormat::Stereo => mono_size * 2,
+            sys::AudioFormat::Mono => mono_size,
+            sys::AudioFormat::Stereo => mono_size * 2,
         }
     }
 
-    pub fn set_format(&mut self, format: AudioFormat) -> NativeResult<()> {
-        let result = unsafe {
-            sys::sceAudioChangeChannelConfig(self.id as i32, format.into())
-        };
+    pub fn set_format(&mut self, format: sys::AudioFormat) -> NativeResult<()> {
+        let result =
+            unsafe { sys::sceAudioChangeChannelConfig(self.id as i32, format) };
         native_result(result).map(|_| {
             self.format = format;
         })
     }
 
-    pub fn format(&self) -> AudioFormat {
+    pub fn format(&self) -> sys::AudioFormat {
         self.format
     }
 
@@ -356,7 +339,7 @@ impl AudioSrcChannel {
             channels,
         })
     }
-    fn close_non_consuming(&self) -> Result<(), AudioError> {
+    fn close_non_consuming(&self) -> NativeResult<()> {
         native_result(unsafe { sys::sceAudioSRCChRelease() })?;
         Ok(())
     }
@@ -401,7 +384,17 @@ impl AudioSrcChannel {
 
 impl Drop for AudioSrcChannel {
     fn drop(&mut self) {
-        let _ = self.close_non_consuming();
+        loop {
+            match self.close_non_consuming() {
+                Err(err) if err.inner() == 0x80268002_u32.cast_signed() => {
+                    let _ = crate::thread::sleep(
+                        core::time::Duration::from_millis(1),
+                    );
+                    continue;
+                }
+                _ => break,
+            }
+        }
     }
 }
 
@@ -483,7 +476,17 @@ impl Audio2Channel {
 
 impl Drop for Audio2Channel {
     fn drop(&mut self) {
-        let _ = self.close_non_consuming();
+        loop {
+            match self.close_non_consuming() {
+                Err(err) if err.inner() == 0x80268002_u32.cast_signed() => {
+                    let _ = crate::thread::sleep(
+                        core::time::Duration::from_millis(1),
+                    );
+                    continue;
+                }
+                _ => break,
+            }
+        }
     }
 }
 

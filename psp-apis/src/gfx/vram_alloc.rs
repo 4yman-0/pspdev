@@ -121,7 +121,7 @@ impl VramChunk {
     }
 
     pub fn alloc(size: usize, align: usize) -> Self {
-		// PSP is single-core anyway
+        // PSP is single-core anyway
         #[allow(static_mut_refs)]
         unsafe {
             if VRAM_ALLOCATOR.is_none() {
@@ -137,7 +137,7 @@ impl VramChunk {
     }
 
     fn dealloc(&mut self) {
-		// PSP is single-core anyway
+        // PSP is single-core anyway
         #[allow(static_mut_refs)]
         unsafe {
             if let Some(alloc) = VRAM_ALLOCATOR.as_mut() {

@@ -19,11 +19,5 @@ pub fn frames_per_second() -> f32 {
 #[must_use]
 pub fn is_foreground() -> bool {
     let is_foreground = unsafe { sys::sceDisplayIsForeground() };
-    if is_foreground == 1 {
-        true
-    } else if is_foreground == 0 {
-        false
-    } else {
-        panic!("Invalid data from sceDisplayIsForeground");
-    }
+    is_foreground == 1
 }

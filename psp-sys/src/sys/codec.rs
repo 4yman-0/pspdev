@@ -79,6 +79,7 @@ pub enum AudioCodec {
     At3 = 0x00001001,
     Mp3 = 0x00001002,
     Aac = 0x00001003,
+    Wma = 0x00001005,
 }
 
 psp_extern! {

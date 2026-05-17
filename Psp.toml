@@ -3,8 +3,11 @@ title = "PSP test"
 disc_version = "0.1"
 parental_level = 5
 
+# 29.97fps 144x80 PMF video file
+#xmb_icon_pmf = "Psp/xmb_icon.pmf"
+
 # 24bit 144x80 PNG
-# xmb_icon_png = "Psp/xmb_icon.png"
+#xmb_icon_png = "Psp/xmb_icon.png"
 
 # 24bit 480x272 background PNG
 #xmb_background_png = "Psp/xmb_background.png"

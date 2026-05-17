@@ -1,5 +1,5 @@
 use crate::error::{
-    NativeResult, /*, NativeResult*/
+    NativeResult, /*NativeResult,*/
     native_error, native_result,
 };
 use alloc::boxed::Box;
@@ -63,7 +63,7 @@ pub fn current_priority() -> i32 {
     unsafe { sys::sceKernelGetThreadCurrentPriority() }
 }
 
-pub fn check_current() -> i32 {
+pub fn check_current_stack() -> i32 {
     unsafe { sys::sceKernelCheckThreadStack() }
 }
 

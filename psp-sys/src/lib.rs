@@ -13,7 +13,6 @@
     std_internals
 )]
 #![no_std]
-#![no_main]
 
 extern crate alloc;
 
@@ -21,29 +20,21 @@ extern crate alloc;
 #[doc(hidden)]
 pub mod debug;
 
-#[macro_use]
-mod vfpu;
+pub use psp_vfpu as vfpu;
 mod eabi;
 pub mod sys;
 pub mod vfpu_context;
 
 mod alloc_impl;
 
-#[cfg(feature = "panic")]
 mod panic;
-#[cfg(feature = "panic")]
 pub use panic::*;
 
-#[doc(hidden)]
-pub use unstringify::unstringify;
-
-#[cfg(feature = "panic")]
 #[panic_handler]
 fn panic_handler(info: &core::panic::PanicInfo) -> ! {
     let file = info.location().map(|l| l.file()).unwrap_or("<Unknown>");
     let line = info.location().map(|l| l.line()).unwrap_or(0xdeadc0de);
     let column = info.location().map(|l| l.column()).unwrap_or(0xdeadc0de);
-    //dprint!("Panicked!");
     dprint!(
         "Panicked at {}:{}:{}: {}",
         file,
@@ -51,8 +42,6 @@ fn panic_handler(info: &core::panic::PanicInfo) -> ! {
         column,
         info.message(),
     );
-    // FIXME: memory leaks (are safe)
-    // TODO: panic = "abort" support
     unsafe {
         sys::sceKernelDelayThread(10 * 1000);
         sys::sceKernelExitDeleteThread(1);

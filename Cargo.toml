@@ -3,7 +3,8 @@ resolver = "3"
 members = [
 	"examples/*",
 	"psp-apis",
-	"psp-sys"
+	"psp-sys",
+	"libm", "psp-vfpu",
 ]
 
 [profile.dev]
@@ -17,5 +18,5 @@ debug-assertions = true
 panic = "abort"
 strip = true
 
-# [patch.crates-io]
-# libm = { path = "libm" }
+[patch.crates-io]
+libm = { path = "libm" }

@@ -1,12 +1,10 @@
 use aligned_box::AlignedBox;
-use psp_apis::fs::{
-    File,
-};
+use psp_apis::fs::File;
 use psp_apis::gfx::{
     //color::Color32,
     //gl::{GlResult, Mat3By4, MatrixMode},
     index::IndexItem,
-    texture::{Texture, texture_size},
+    texture::{Texture, TextureResult, texture_size},
     vertex::{Vertex, VertexSize},
 };
 use psp_apis::kernel;
@@ -24,7 +22,7 @@ unsafe fn read_u32(file: &mut File) -> u32 {
     u16::from_le_bytes(buf)
 }*/
 
-pub fn load_texture(file_name: &core::ffi::CStr) -> Texture {
+pub fn load_texture(file_name: &core::ffi::CStr) -> TextureResult<Texture> {
     let mut file = File::open(file_name, sys::IoOpenFlags::RD_ONLY).unwrap();
 
     let _file_size = file.seek_i32(0, sys::IoWhence::End) as usize;
@@ -43,7 +41,7 @@ pub fn load_texture(file_name: &core::ffi::CStr) -> Texture {
     let height: usize = unsafe { read_u32(&mut file) as usize };
 
     let mut ram_texture = alloc::boxed::Box::<[u8]>::new_uninit_slice(
-         texture_size(width * height, format),
+        texture_size(width * height, format),
     );
     file.read_all(unsafe { ram_texture.assume_init_mut() })
         .unwrap();
@@ -51,7 +49,7 @@ pub fn load_texture(file_name: &core::ffi::CStr) -> Texture {
     kernel::data_cache_writeback_invalidate(&ram_texture);
 
     let mut texture =
-        Texture::allocate(width as u16, height as u16, format, swizzled);
+        Texture::allocate(width as u16, height as u16, format, swizzled)?;
 
     texture.buffer_mut().copy_from_slice(&ram_texture);
     kernel::data_cache_writeback_invalidate(texture.buffer());
@@ -59,7 +57,7 @@ pub fn load_texture(file_name: &core::ffi::CStr) -> Texture {
     drop(ram_texture);
     drop(file);
 
-    texture
+    Ok(texture)
 }
 
 pub struct Model {

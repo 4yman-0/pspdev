@@ -5,9 +5,7 @@
 
 extern crate alloc;
 
-use psp_apis::fs::{
-    Directory,
-};
+use psp_apis::fs::Directory;
 use psp_apis::gfx::{
     Gfx,
     color::Color32,
@@ -65,7 +63,9 @@ fn psp_main() {
     let mut gfx = Gfx::init(sys::TexturePixelFormat::Psm8888)
         .unwrap()
         .depth_test()
+        .unwrap()
         .double_buffering()
+        .unwrap()
         .culling()
         .scissor_test()
         .unwrap()
@@ -76,7 +76,7 @@ fn psp_main() {
     warn_unwrap(gfx.start_frame_with(|frame| {
         let gl = frame.gl_mut();
 
-        let mut perspective = Mat4::perspective_rh_gl(
+        let /*mut*/ perspective = Mat4::perspective_rh_gl(
             deg_to_rad(90.0), //90º
             16.0 / 9.0,
             1.0,

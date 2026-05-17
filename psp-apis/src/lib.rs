@@ -26,28 +26,29 @@ mod critical_section;
 
 // // not tested
 // pub mod audio_codec;
+// pub mod mpeg;
 
 #[repr(align(16))]
 pub struct Align16<T: ?Sized>(T);
 
 pub mod ptr {
-	#[inline]
-	pub fn make_uncached<T>(ptr: *const T) -> *const T {
-		ptr.map_addr(|a| a | 0x40000000)
-	}
+    #[inline]
+    pub fn make_uncached<T>(ptr: *const T) -> *const T {
+        ptr.map_addr(|a| a | 0x40000000)
+    }
 
-	#[inline]
-	pub fn make_uncached_mut<T>(ptr: *mut T) -> *mut T {
-		ptr.map_addr(|a| a | 0x40000000)
-	}
-	
-	#[inline]
-	pub fn make_cached<T>(ptr: *const T) -> *const T {
-		ptr.map_addr(|a| a & (!0x40000000))
-	}
+    #[inline]
+    pub fn make_uncached_mut<T>(ptr: *mut T) -> *mut T {
+        ptr.map_addr(|a| a | 0x40000000)
+    }
 
-	#[inline]
-	pub fn make_cached_mut<T>(ptr: *mut T) -> *mut T {
-		ptr.map_addr(|a| a & (!0x40000000))
-	}
+    #[inline]
+    pub fn make_cached<T>(ptr: *const T) -> *const T {
+        ptr.map_addr(|a| a & (!0x40000000))
+    }
+
+    #[inline]
+    pub fn make_cached_mut<T>(ptr: *mut T) -> *mut T {
+        ptr.map_addr(|a| a & (!0x40000000))
+    }
 }

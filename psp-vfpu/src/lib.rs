@@ -1,4 +1,19 @@
+#![cfg(target_os = "psp")]
+#![allow(internal_features, unused_features, clippy::missing_safety_doc)]
+#![feature(
+    alloc_error_handler,
+    asm_experimental_arch,
+    c_variadic,
+    core_intrinsics,
+    rustc_attrs,
+    std_internals
+)]
+#![no_std]
+
 //! VFPU support.
+
+#[doc(hidden)]
+pub use unstringify::unstringify;
 
 /// A macro-based VFPU assembler.
 ///
@@ -680,7 +695,6 @@ macro_rules! instruction {
     };
 
     // Performs element-wise floating point asin(rs)⋅2/π operation
-
     (vasin.s $rd:ident $([$($rdp:tt)+])?, $rs:ident $([$($rsp:tt)+])?) => {
         concat!(
             $($crate::instruction!(vpfxd $($rdp)*), "\n",)?
@@ -729,7 +743,6 @@ macro_rules! instruction {
     };
 
     // Calculates the average value of the vector elements
-
     (vavg.p $rd:ident $([$($rdp:tt)+])?, $rs:ident $([$($rsp:tt)+])?) => {
         concat!(
             $($crate::instruction!(vpfxd $($rdp)*), "\n",)?
@@ -767,7 +780,6 @@ macro_rules! instruction {
     };
 
     // Performs a `butterfly` operation between the input elements.
-
     (vbfy1.p $rd:ident $([$($rdp:tt)+])?, $rs:ident $([$($rsp:tt)+])?) => {
         concat!(
             $($crate::instruction!(vpfxd $($rdp)*), "\n",)?
@@ -807,7 +819,6 @@ macro_rules! instruction {
     };
 
     // Converts the input packed chars into full 32 bit integers in the output register. The input is placed on the most significant bits of the output integer, while the least significant bits are filled with zeros.
-
     (vc2i.s $rd:ident $([$($rdp:tt)+])?, $rs:ident) => {
         concat!(
             $($crate::instruction!(vpfxd $($rdp)*), "\n",)?
@@ -817,6 +828,7 @@ macro_rules! instruction {
             "| (0b0111001 << 16)",
         )
     };
+
     // Performs element-wise floating point sin(π/2⋅rs) operation
     (vsin.s $rd:ident $([$($rdp:tt)+])?, $rs:ident $([$($rsp:tt)+])?) => {
         concat!(

@@ -15,7 +15,7 @@ impl NativeError {
         (self.0 & 0x40000000) != 0
     }
 
-    pub(crate) const fn inner(&self) -> i32 {
+    pub const fn inner(&self) -> i32 {
         self.0
     }
 }

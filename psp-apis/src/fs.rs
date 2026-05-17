@@ -1,4 +1,5 @@
 use crate::error::{NativeError, NativeResult, native_error, native_result};
+use core::mem::MaybeUninit;
 use psp_sys::sys;
 
 pub type Path = core::ffi::CStr;
@@ -187,7 +188,7 @@ impl File {
 
     pub fn wait_async(&self) -> NativeResult<i64> {
         let mut result = 0i64;
-        native_error(unsafe { sys::sceIoWaitAsync(self.uid, &raw mut result) })
+        native_error(unsafe { sys::sceIoWaitAsync(self.uid, &mut result) })
             .map(|_| result)
     }
 
@@ -195,7 +196,7 @@ impl File {
 
     pub fn poll_async(&self) -> NativeResult<i64> {
         let mut result = 0i64;
-        native_error(unsafe { sys::sceIoPollAsync(self.uid, &raw mut result) })
+        native_error(unsafe { sys::sceIoPollAsync(self.uid, &mut result) })
             .map(|_| result)
     }
 
@@ -276,15 +277,17 @@ impl Directory {
     }
 
     pub fn read(&mut self) -> FsResult<Option<sys::SceIoDirent>> {
-        let mut dir_entry = sys::SceIoDirent {
-            d_stat: default_io_stat(),
-            d_name: [48; 256],
-            d_private: Default::default(),
-            dummy: Default::default(),
-        };
-        let result = unsafe { sys::sceIoDread(self.uid, &raw mut dir_entry) };
+        let mut dir_entry = MaybeUninit::<sys::SceIoDirent>::uninit();
+        let result =
+            unsafe { sys::sceIoDread(self.uid, dir_entry.assume_init_mut()) };
         native_result(result)
-            .map(|result| if result != 0 { Some(dir_entry) } else { None })
+            .map(|result| {
+                if result != 0 {
+                    Some(unsafe { dir_entry.assume_init() })
+                } else {
+                    None
+                }
+            })
             .map_err(|e| e.into())
     }
 }
@@ -319,8 +322,7 @@ fn default_io_stat() -> sys::SceIoStat {
 
 pub fn get_stat(path: &Path) -> NativeResult<sys::SceIoStat> {
     let mut stat = default_io_stat();
-    let result =
-        unsafe { sys::sceIoGetstat(path.as_ptr().cast(), &raw mut stat) };
+    let result = unsafe { sys::sceIoGetstat(path.as_ptr().cast(), &mut stat) };
     native_error(result).map(|_| stat)
 }
 

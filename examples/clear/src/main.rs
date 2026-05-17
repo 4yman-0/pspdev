@@ -3,10 +3,7 @@
 #![no_std]
 #![no_main]
 
-use psp_apis::gfx::{
-    Gfx,
-    color::Color32,
-};
+use psp_apis::gfx::{Gfx, color::Color32};
 
 use psp_sys::{enable_home_button, sys};
 
@@ -21,7 +18,7 @@ fn psp_main() {
     loop {
         gfx.start_frame_with(|frame| {
             let gl = frame.gl_mut();
-            
+
             gl.clear_color(CLEAR_COLOR);
             gl.clear(
                 sys::ClearFlags::DEPTH_BUFFER_BIT
@@ -30,8 +27,9 @@ fn psp_main() {
             )?;
 
             Ok(())
-        }).unwrap();
-        
+        })
+        .unwrap();
+
         psp_apis::display::wait_vblank_start();
     }
 }
